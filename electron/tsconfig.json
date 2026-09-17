@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["./**/*.ts", "./**/*.cts", "../src/desktop.d.ts", "../src/app/core/models/**/*.ts", "../src/app/core/contracts/**/*.ts", "../src/app/core/desktop/desktop-api.ts"]
+}

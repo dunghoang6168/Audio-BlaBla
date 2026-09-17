@@ -1,0 +1,184 @@
+# Audio BlaBla
+
+Audio BlaBla là ứng dụng nghe nhạc offline trên desktop, ưu tiên Windows. Dự án dùng Angular và TypeScript xuyên suốt, tập trung vào kiến trúc dễ hiểu, dễ bảo trì và đủ linh hoạt để thay playback engine trong tương lai.
+
+V1 quản lý thư mục nhạc trên máy, đọc metadata, duyệt thư viện theo Songs/Albums/Artists/Folders, quản lý playlist và playback queue, đồng thời phát audio bằng Chromium. Các tính năng audio native chuyên sâu không nằm trong phạm vi V1.
+
+## Trạng thái hiện tại
+
+Phase 1 UI/UX và Phase 2 desktop integration đã được kết nối trong code:
+
+- Browser mode dùng mock gateways để phát triển UI độc lập.
+- Electron mode dùng preload API, IPC handlers, filesystem scanner, `music-metadata`, SQLite và artwork cache.
+- Playback thật dùng một `HTMLAudioElement` qua `HtmlAudioPlaybackEngine` và URL dạng `music://track/<trackId>`.
+- Music folders, library, playlists và settings được lưu tại Electron `userData`.
+- Scanner đọc recursive MP3, FLAC, WAV, M4A/AAC, OGG và Opus; file lỗi không làm dừng toàn bộ scan.
+- Build Angular và Electron đã thành công. 38 Angular tests, 2 backend integration tests và Electron production smoke test đã thành công tại thời điểm cập nhật tài liệu.
+
+Chưa có installer, code signing hoặc phát hành Windows. Kiểm tra trực quan toàn bộ UI tại `1280 × 800` và `900 × 600`, native folder picker với library lớn, cùng playback thực tế trên nhiều codec/container vẫn cần thực hiện thủ công trên Windows.
+
+## Chức năng V1
+
+| Nhóm | Chức năng |
+| --- | --- |
+| Music folders | Chọn nhiều thư mục bằng native picker, scan recursive, xóa root khỏi library mà không xóa file |
+| Metadata | Title, artist, album artist, album, genre, year, track/disc number, duration, codec, bitrate, sample rate, bit depth, channels và embedded artwork |
+| Library | Browse Songs, Albums, Artists và cấu trúc filesystem trong Folders |
+| Playback | Play, pause/resume, previous/next, seek, volume/mute, repeat off/one/all và shuffle |
+| Queue | Queue độc lập thứ tự library, hỗ trợ chuyển bài, xóa và clear |
+| Playlists | Tạo, đổi tên, xóa, thêm/xóa/sắp xếp entry; cho phép cùng track xuất hiện nhiều lần |
+| Persistence | SQLite lưu folder, track, directory snapshot, playlist, settings và scan run |
+| Desktop UX | Bottom player, Now Playing, scan progress, loading/empty/error states và tiếp tục phát khi minimize |
+
+Định dạng scanner ưu tiên: **MP3, FLAC, WAV, M4A/AAC, OGG và Opus**. Việc đọc được metadata không đảm bảo Chromium phát được mọi codec/container. File không được Chromium hỗ trợ sẽ tạo playback error; V1 không transcoding.
+
+### Chất lượng audio
+
+UI chỉ hiển thị metadata của **file nguồn**, ví dụ:
+
+```text
+FLAC • 24-bit • 96 kHz • 2840 kbps
+```
+
+Trường không đọc được giữ `null` và không hiển thị giá trị giả. Thông tin này không xác nhận output thực tế tới DAC, sample rate của thiết bị hoặc bit-perfect.
+
+## Stack
+
+- Angular 21, standalone components, Angular Router, Signals, RxJS và SCSS.
+- TypeScript 5.9 ở frontend, preload và Electron Main Process.
+- Electron 44.4.x với `nodeIntegration: false`, `contextIsolation: true` và `sandbox: true`.
+- Node APIs trong Main Process; renderer không truy cập trực tiếp filesystem hoặc raw IPC.
+- `music-metadata` để đọc tag và format information.
+- `node:sqlite` để persistence, không dùng database server hoặc native addon ngoài Electron.
+- `HTMLAudioElement`/Chromium audio cho playback V1.
+- Jasmine/Karma cho Angular và `node:test` cho backend.
+
+## Kiến trúc
+
+```text
+Angular components
+  ├─ Angular services
+  │    └─ gateway interfaces
+  │         ├─ mock adapters                 (browser mode)
+  │         └─ Electron adapters             (desktop mode)
+  │              └─ window.desktop
+  │                   └─ preload/contextBridge
+  │                        └─ ipcMain handlers
+  │                             ├─ DatabaseService → SQLite
+  │                             ├─ ScannerService → filesystem
+  │                             ├─ ArtworkService → artwork cache
+  │                             └─ music-metadata
+  └─ PlayerService
+       └─ PlaybackEngine
+            ├─ MockPlaybackEngine            (browser mode)
+            └─ HtmlAudioPlaybackEngine       (desktop mode)
+                 └─ music://track/<trackId>
+```
+
+Preload chỉ expose các hàm cụ thể. Renderer không nhận `ipcRenderer`, `fs`, `shell` hoặc `process`. Native picker đăng ký canonical folder ngay trong Main Process; scan chỉ nhận folder ID đã đăng ký. Protocol audio nhận track ID, resolve đường dẫn qua database và kiểm tra file vẫn nằm trong music root trước khi stream.
+
+Hai custom protocol được đăng ký trước `app.ready`:
+
+- `app://audio-blabla/` phục vụ Angular production build và fallback Router.
+- `music://track/<trackId>` và `music://artwork/<hash>` phục vụ audio/artwork đã được cấp quyền.
+
+## Cấu trúc thư mục
+
+```text
+src/app/
+  core/
+    contracts/       # Gateway và PlaybackEngine contracts
+    desktop/         # Electron adapters và HTMLAudio playback engine
+    mock/            # Browser mock adapters, fixtures và scenarios
+    models/          # Domain models
+    player/          # PlayerService và queue state
+  features/          # Home, Songs, Albums, Artists, Folders, Playlists...
+  shared/            # Sidebar, player bar, queue drawer, pipes
+
+electron/
+  main.ts            # App lifecycle và BrowserWindow
+  preload.cts        # Whitelist API qua contextBridge
+  ipc/               # IPC validation và handlers
+  protocols/         # app:// và music://
+  services/          # Database, scanner và artwork cache
+  tests/             # Backend integration tests
+  utils/             # Path, stable ID và logging
+
+docs/                # Contracts và tài liệu tích hợp
+scripts/             # Electron launcher và bundle compatibility fix
+```
+
+## Cài đặt và chạy
+
+Cài đúng dependency theo lockfile:
+
+```bash
+npm ci
+```
+
+Nếu PowerShell chặn `npm.ps1`, dùng `npm.cmd` trong các lệnh dưới đây.
+
+### Browser development với mock data
+
+```bash
+npm start
+```
+
+Mở `http://localhost:4200`. Chế độ này không đọc filesystem thật và không persistence.
+
+### Electron development
+
+```bash
+npm run dev
+```
+
+Script chạy Angular dev server, build Electron Main/preload, chờ cổng `4200` rồi mở Electron.
+
+### Production build và chạy Electron
+
+```bash
+npm run build
+npm run electron
+```
+
+Angular output nằm tại `dist/audio-blabla/`; Main và preload nằm tại `dist-electron/`. `npm run electron` build lại trước khi mở app và chưa tạo installer.
+
+### Kiểm thử
+
+```bash
+npm test -- --watch=false --browsers=ChromeHeadless
+npm run test:electron
+npm run smoke:electron
+```
+
+Trên Windows có thể dùng Edge làm binary cho Karma:
+
+```powershell
+$env:CHROME_BIN = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'
+npm.cmd test -- --watch=false --browsers=ChromeHeadless
+```
+
+`test:electron` tạo WAV và SQLite trong thư mục tạm để kiểm tra scan, stable identity, reconciliation, playlist và settings persistence. `smoke:electron` chạy production app ẩn với một Electron profile tạm riêng để xác minh `app://`, preload và IPC `ping → pong`; dữ liệu ứng dụng thật trong `userData` không bị sử dụng.
+
+Trên Windows, launcher sở hữu vòng đời của profile smoke test và chỉ dọn thư mục này sau khi tiến trình Electron đã thoát hoàn toàn. Việc dọn dẹp có retry ngắn để chờ Chromium giải phóng file, tránh lỗi `EPERM: Permission denied` khi kết thúc smoke test.
+
+## Persistence và scanning
+
+Database mặc định ở `app.getPath('userData')/audio-blabla.sqlite`; artwork nằm trong `userData/artwork-cache`. Audio binary không được lưu trong database.
+
+Track ID là SHA-256 của normalized canonical path. Trên Windows identity không phân biệt hoa thường. Scanner dùng `fileSize + lastModified` để bỏ qua metadata không đổi, giới hạn metadata concurrency ở 4 và ghi tối đa 100 tracks mỗi batch. Scan thành công mới reconcile file mất; root lỗi không xóa snapshot library cũ.
+
+Artwork chỉ nhận JPEG, PNG hoặc WebP tối đa 10 MiB. Nội dung được hash để deduplicate và Track chỉ giữ URL protocol, không giữ base64 lặp lại.
+
+## Giới hạn V1
+
+Bit-perfect, WASAPI Exclusive, ASIO, điều khiển USB DAC, tự đổi sample rate thiết bị, DSD/DoP, FFmpeg native, custom audio driver, EQ, ReplayGain, crossfade và DSP nằm ngoài V1.
+
+Dự án chưa có Android, account, cloud sync, remote backend hoặc lyrics online. `PlaybackEngine` tạo ranh giới để có thể nghiên cứu native engine sau này mà không buộc UI đổi theo.
+
+## Tài liệu liên quan
+
+- [Desktop integration contracts](docs/PHASE1_INTEGRATION_CONTRACTS.md)
+- [Gateway interfaces](src/app/core/contracts/)
+- [Desktop API](src/app/core/desktop/desktop-api.ts)
+- [Scripts và dependencies](package.json)

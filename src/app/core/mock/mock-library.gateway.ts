@@ -1,0 +1,100 @@
+import { Injectable } from '@angular/core';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { LibraryGateway, LibrarySnapshot } from '../contracts/library.gateway';
+import { FolderNode, MusicFolder, ScanProgress } from '../models';
+import { MOCK_ALBUMS, MOCK_ARTISTS, MOCK_FOLDERS, MOCK_FOLDER_TREES, MOCK_TRACKS } from './fixtures/mock-data';
+
+@Injectable({ providedIn: 'root' })
+export class MockLibraryGateway implements LibraryGateway {
+  private tracks = [...MOCK_TRACKS];
+  private albums = [...MOCK_ALBUMS];
+  private artists = [...MOCK_ARTISTS];
+  private folders = [...MOCK_FOLDERS];
+
+  private readonly scanProgressSubject = new BehaviorSubject<ScanProgress>({
+    isScanning: false,
+    scannedFiles: 0,
+    audioFiles: 0,
+    currentPath: null,
+  });
+
+  readonly scanProgress$: Observable<ScanProgress> = this.scanProgressSubject.asObservable();
+
+  async getLibrary(): Promise<LibrarySnapshot> {
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    return {
+      tracks: [...this.tracks],
+      albums: [...this.albums],
+      artists: [...this.artists],
+      folders: [...this.folders],
+    };
+  }
+
+  async getFolderTree(folderId: string): Promise<FolderNode | null> {
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    return MOCK_FOLDER_TREES[folderId] ? JSON.parse(JSON.stringify(MOCK_FOLDER_TREES[folderId])) : null;
+  }
+
+  async selectAndAddMusicFolders(): Promise<MusicFolder[]> {
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const paths = ['D:\\Music\\Hi-Res Collection\\Vinyl Rips', 'D:\\Music\\Soundtracks'];
+    const added: MusicFolder[] = [];
+    for (const path of paths) {
+      if (this.folders.some((folder) => folder.path === path)) continue;
+      const name = path.split('\\').pop() || 'New Folder';
+      const folder: MusicFolder = { id: `folder-${Date.now()}-${added.length}`, name, path, addedAt: Date.now() };
+      this.folders.push(folder);
+      MOCK_FOLDER_TREES[folder.id] = { id: `node-root-${folder.id}`, name, path, isFolder: true, children: [] };
+      added.push(folder);
+    }
+    return added;
+  }
+
+  async removeMusicFolder(folderId: string): Promise<void> {
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    this.folders = this.folders.filter((f) => f.id !== folderId);
+  }
+
+  async requestScan(folderIds?: string[]): Promise<void> {
+    if (this.scanProgressSubject.value.isScanning) {
+      return;
+    }
+
+    const paths = folderIds && folderIds.length > 0
+      ? folderIds.map((id) => this.folders.find((folder) => folder.id === id)?.path).filter((path): path is string => Boolean(path))
+      : this.folders.map((f) => f.path);
+    const basePath = paths[0] || 'D:\\Music';
+
+    this.scanProgressSubject.next({
+      isScanning: true,
+      scannedFiles: 14,
+      audioFiles: 9,
+      currentPath: basePath,
+    });
+
+    const subDirs = ['Aimer', 'Classical\\Beethoven', 'Daft Punk', 'Vũ', 'Demos\\Corrupted_Check'];
+
+    for (let i = 0; i < subDirs.length; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      const isCorruptedCheck = subDirs[i].includes('Corrupted');
+
+      this.scanProgressSubject.next({
+        isScanning: true,
+        scannedFiles: 35 + i * 28,
+        audioFiles: 22 + i * 19,
+        currentPath: `${basePath}\\${subDirs[i]}`,
+        error: isCorruptedCheck ? 'Warning: 1 corrupted file skipped in Demos' : null,
+      });
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    this.scanProgressSubject.next({
+      isScanning: false,
+      scannedFiles: 175,
+      audioFiles: 125,
+      currentPath: null,
+      error: null,
+    });
+  }
+}

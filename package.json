@@ -1,0 +1,53 @@
+{
+  "name": "audio-blabla",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "npm run build:web && npm run build:electron",
+    "build:web": "ng build",
+    "build:electron": "tsup --config tsup.config.ts && node scripts/fix-electron-bundle.mjs",
+    "dev": "concurrently -k -n WEB,ELECTRON -c cyan,magenta \"ng serve\" \"npm run dev:electron\"",
+    "dev:electron": "npm run build:electron && wait-on http://localhost:4200 && node scripts/run-electron.mjs --dev",
+    "electron": "npm run build && node scripts/run-electron.mjs",
+    "smoke:electron": "npm run build && node scripts/run-electron.mjs --smoke",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "test:electron": "tsup --config tsup.electron-tests.config.ts && node scripts/fix-electron-bundle.mjs dist-electron-tests/backend.test.js && node --test dist-electron-tests/backend.test.js",
+    "test:all": "npm run test -- --watch=false --browsers=ChromeHeadless && npm run test:electron"
+  },
+  "private": true,
+  "dependencies": {
+    "@angular/common": "^21.2.0",
+    "@angular/compiler": "^21.2.0",
+    "@angular/core": "^21.2.0",
+    "@angular/forms": "^21.2.0",
+    "@angular/platform-browser": "^21.2.0",
+    "@angular/platform-browser-dynamic": "^21.2.0",
+    "@angular/router": "^21.2.0",
+    "music-metadata": "^11.15.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0",
+    "zone.js": "~0.15.0"
+  },
+  "devDependencies": {
+    "@angular-devkit/build-angular": "^21.2.0",
+    "@angular/cli": "^21.2.0",
+    "@angular/compiler-cli": "^21.2.0",
+    "@types/jasmine": "~5.1.0",
+    "@types/node": "^24.10.1",
+    "concurrently": "^9.2.1",
+    "electron": "^44.4.1",
+    "jasmine-core": "~5.6.0",
+    "karma": "~6.4.0",
+    "karma-chrome-launcher": "~3.2.0",
+    "karma-coverage": "~2.2.0",
+    "karma-jasmine": "~5.1.0",
+    "karma-jasmine-html-reporter": "~2.1.0",
+    "tsup": "^8.5.1",
+    "typescript": "~5.9.3",
+    "wait-on": "^8.0.4"
+  }
+}
