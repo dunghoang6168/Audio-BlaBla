@@ -55,6 +55,39 @@ describe('HtmlAudioPlaybackEngine', () => {
     expect(FakeAudio.latest.volume).toBe(1);
     expect(FakeAudio.latest.currentTime).toBe(120);
   });
+
+  it('uses track metadata duration when Chromium reports a non-finite duration', async () => {
+    const engine = new HtmlAudioPlaybackEngine();
+    const loaded = engine.load(track('track-' + 'd'.repeat(64)));
+    FakeAudio.latest.dispatchEvent(new Event('loadedmetadata'));
+    await loaded;
+
+    FakeAudio.latest.duration = Number.NaN;
+    engine.seek(60);
+    expect(FakeAudio.latest.currentTime).toBe(60);
+
+    FakeAudio.latest.duration = Number.POSITIVE_INFINITY;
+    engine.seek(90);
+    expect(FakeAudio.latest.currentTime).toBe(90);
+  });
+
+  it('leaves loading state when audio can play after buffering', async () => {
+    const engine = new HtmlAudioPlaybackEngine();
+    const states: string[] = [];
+    engine.stateChange$.subscribe((event) => states.push(event.state));
+    const loaded = engine.load(track('track-' + 'c'.repeat(64)));
+    FakeAudio.latest.dispatchEvent(new Event('loadedmetadata'));
+    await loaded;
+
+    FakeAudio.latest.paused = false;
+    FakeAudio.latest.dispatchEvent(new Event('waiting'));
+    FakeAudio.latest.dispatchEvent(new Event('canplay'));
+    expect(states.at(-1)).toBe('playing');
+
+    FakeAudio.latest.paused = true;
+    FakeAudio.latest.dispatchEvent(new Event('canplay'));
+    expect(states.at(-1)).toBe('paused');
+  });
 });
 
 function track(id: string): Track {

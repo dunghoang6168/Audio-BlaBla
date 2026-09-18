@@ -1,4 +1,5 @@
 export * from './track.model';
+export * from './album-track-order';
 export * from './album.model';
 export * from './artist.model';
 export * from './folder.model';

@@ -1,6 +1,6 @@
 import type { DatabaseSync as DatabaseSyncType } from 'node:sqlite';
 import path from 'node:path';
-import { Album, Artist, FolderNode, MusicFolder, Playlist, PlaylistEntry, Settings, Track } from '../../src/app/core/models/index.js';
+import { Album, Artist, FolderNode, MusicFolder, orderAlbumTracks, Playlist, PlaylistEntry, Settings, Track } from '../../src/app/core/models/index.js';
 import { LibrarySnapshot } from '../../src/app/core/contracts/library.gateway.js';
 import { pathKey, stableId } from '../utils/path-utils.js';
 
@@ -145,7 +145,17 @@ export class DatabaseService {
       if (!artist.albumIds.includes(albumId)) artist.albumIds.push(albumId);
       artist.trackIds.push(track.id); artistMap.set(artistId, artist);
     }
-    return { tracks, albums: [...albumMap.values()], artists: [...artistMap.values()], folders: this.listFolders() };
+    const trackMap = new Map(tracks.map((track) => [track.id, track]));
+    const albums = [...albumMap.values()].map((album) => ({
+      ...album,
+      trackIds: orderAlbumTracks(
+        album.trackIds.flatMap((trackId) => {
+          const track = trackMap.get(trackId);
+          return track ? [track] : [];
+        }),
+      ).map((track) => track.id),
+    }));
+    return { tracks, albums, artists: [...artistMap.values()], folders: this.listFolders() };
   }
 
   getFolderTree(folderId: string): FolderNode | null {

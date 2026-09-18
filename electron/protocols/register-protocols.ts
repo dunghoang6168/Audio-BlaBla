@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { DatabaseService } from '../services/database.service.js';
 import { isPathInside } from '../utils/path-utils.js';
+import { createFileResponse } from './file-response.js';
 
 
 export function registerPrivilegedSchemes(): void {
@@ -32,20 +33,15 @@ export function installProtocolHandlers(database: DatabaseService, rendererRoot:
     if (url.hostname === 'artwork') {
       if (!/^[a-f0-9]{64}$/.test(id)) return response(400, 'Invalid resource ID');
       const artwork = database.resolveArtwork(id); if (!artwork) return response(404, 'Artwork not found');
-      return fetchFile(artwork.path, request);
+      return createFileResponse(artwork.path, request, artwork.mime);
     }
     if (url.hostname !== 'track') return response(404, 'Resource not found');
     if (!/^track-[a-f0-9]{64}$/.test(id)) return response(400, 'Invalid resource ID');
     const track = database.resolveTrack(id); if (!track) return response(404, 'Track not found');
     let canonical: string; try { canonical = await realpath(track.path); } catch { return response(404, 'Audio file not found'); }
     if (!database.listFolders().some((folder) => isPathInside(canonical, folder.path))) return response(403, 'Track is outside registered music folders');
-    return fetchFile(canonical, request);
+    return createFileResponse(canonical, request, track.mime);
   });
-}
-
-async function fetchFile(filePath: string, request: Request): Promise<Response> {
-  try { await access(filePath); return net.fetch(pathToFileURL(filePath).toString(), { method: request.method, headers: request.headers }); }
-  catch { return response(404, 'File not found'); }
 }
 function trustedInitiator(origin: string | undefined, development: boolean): boolean { return origin === 'app://audio-blabla' || (development && origin === 'http://localhost:4200'); }
 function response(status: number, message: string): Response { return new Response(message, { status, headers: { 'content-type': 'text/plain; charset=utf-8' } }); }

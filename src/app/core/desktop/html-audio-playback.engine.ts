@@ -21,9 +21,13 @@ export class HtmlAudioPlaybackEngine implements PlaybackEngine {
     this.audio.addEventListener('pause', () => { if (!this.audio.ended && this.currentTrack) this.state.next({ state: 'paused', track: this.currentTrack }); });
     this.audio.addEventListener('ended', () => this.state.next({ state: 'ended', track: this.currentTrack }));
     this.audio.addEventListener('waiting', () => this.state.next({ state: 'loading', track: this.currentTrack }));
-    this.audio.addEventListener('canplay', () => { if (this.currentTrack && this.audio.paused) this.state.next({ state: 'paused', track: this.currentTrack }); });
+    this.audio.addEventListener('canplay', () => {
+      if (this.currentTrack) this.state.next({ state: this.audio.paused ? 'paused' : 'playing', track: this.currentTrack });
+    });
     this.audio.addEventListener('timeupdate', () => this.emitTime());
     this.audio.addEventListener('durationchange', () => this.emitTime());
+    this.audio.addEventListener('seeking', () => this.emitTime());
+    this.audio.addEventListener('seeked', () => this.emitTime());
     this.audio.addEventListener('volumechange', () => this.volumeState.next({ volume: this.audio.volume, isMuted: this.audio.muted }));
     this.audio.addEventListener('error', () => this.state.next({ state: 'error', track: this.currentTrack, error: {
       code: `MEDIA_${this.audio.error?.code ?? 'UNKNOWN'}`,
@@ -49,7 +53,13 @@ export class HtmlAudioPlaybackEngine implements PlaybackEngine {
   }
   async play(): Promise<void> { await this.audio.play(); }
   pause(): void { this.audio.pause(); }
-  seek(positionSeconds: number): void { const duration = Number.isFinite(this.audio.duration) ? this.audio.duration : 0; this.audio.currentTime = Math.max(0, Math.min(positionSeconds, duration)); }
+  seek(positionSeconds: number): void {
+    const mediaDuration = Number.isFinite(this.audio.duration) && this.audio.duration > 0 ? this.audio.duration : null;
+    const trackDuration = this.currentTrack && Number.isFinite(this.currentTrack.duration) && this.currentTrack.duration > 0 ? this.currentTrack.duration : 0;
+    const duration = mediaDuration ?? trackDuration;
+    this.audio.currentTime = Math.max(0, Math.min(positionSeconds, duration));
+    this.emitTime();
+  }
   setVolume(volume: number): void { this.audio.volume = Math.max(0, Math.min(1, volume)); }
   setMute(isMuted: boolean): void { this.audio.muted = isMuted; }
   dispose(): void { this.loadSequence++; this.audio.pause(); this.audio.removeAttribute('src'); this.audio.load(); this.currentTrack = null; this.state.next({ state: 'idle', track: null }); }

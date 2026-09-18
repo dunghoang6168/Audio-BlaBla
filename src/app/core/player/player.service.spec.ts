@@ -360,4 +360,33 @@ describe('PlayerService (Queue, Repeat, Shuffle, Playback)', () => {
       expect(service.isShuffle()).toBeFalse();
     });
   });
+
+  describe('Playback intent while loading', () => {
+    it('should cancel pending auto-play when pause is pressed during loading', async () => {
+      const playSpy = spyOn(engine, 'play').and.callThrough();
+      const pendingPlay = service.playTrack(mockTracks[0]);
+
+      expect(service.playbackState()).toBe('loading');
+      expect(service.isPlaybackActive()).toBeTrue();
+
+      await service.togglePlayPause();
+      expect(service.playbackState()).toBe('paused');
+      expect(service.isPlaybackActive()).toBeFalse();
+
+      await pendingPlay;
+      expect(playSpy).not.toHaveBeenCalled();
+      expect(service.isPlaying()).toBeFalse();
+    });
+
+    it('should play normally after a pending load was cancelled', async () => {
+      const playSpy = spyOn(engine, 'play').and.callThrough();
+      const pendingPlay = service.playTrack(mockTracks[0]);
+      await service.togglePlayPause();
+      await pendingPlay;
+
+      await service.togglePlayPause();
+      expect(playSpy).toHaveBeenCalledTimes(1);
+      expect(service.isPlaying()).toBeTrue();
+    });
+  });
 });

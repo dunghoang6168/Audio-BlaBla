@@ -13,6 +13,7 @@ export class PlayerService implements OnDestroy {
 
   // Internal Request Counter for handling overlapping load requests
   private loadSequence = 0;
+  private readonly playRequested = signal(false);
 
   // Primary Signals
   readonly currentTrack = signal<Track | null>(null);
@@ -33,6 +34,7 @@ export class PlayerService implements OnDestroy {
   // Derived Computed Signals
   readonly isPlaying = computed(() => this.playbackState() === 'playing');
   readonly isLoading = computed(() => this.playbackState() === 'loading');
+  readonly isPlaybackActive = computed(() => this.isPlaying() || (this.isLoading() && this.playRequested()));
 
   readonly currentQueueEntry = computed<QueueEntry | null>(() => {
     const q = this.queue();
@@ -93,6 +95,7 @@ export class PlayerService implements OnDestroy {
 
         this.playbackState.set(evt.state);
         if (evt.error) {
+          this.playRequested.set(false);
           this.error.set(evt.error.message);
         } else if (evt.state === 'playing') {
           this.error.set(null);
@@ -194,7 +197,7 @@ export class PlayerService implements OnDestroy {
       return;
     }
 
-    if (this.isPlaying()) {
+    if (this.isPlaybackActive()) {
       this.pause();
     } else {
       await this.play();
@@ -202,11 +205,19 @@ export class PlayerService implements OnDestroy {
   }
 
   async play(): Promise<void> {
-    await this.engine.play();
+    this.playRequested.set(true);
+    try {
+      await this.engine.play();
+    } catch (error) {
+      this.playRequested.set(false);
+      throw error;
+    }
   }
 
   pause(): void {
+    this.playRequested.set(false);
     this.engine.pause();
+    if (this.playbackState() === 'loading') this.playbackState.set('paused');
   }
 
   seek(positionSeconds: number): void {
@@ -457,6 +468,7 @@ export class PlayerService implements OnDestroy {
 
   clearQueue(): void {
     this.loadSequence++;
+    this.playRequested.set(false);
     this.engine.dispose();
     this.queue.set([]);
     this.originalQueue = [];
@@ -489,17 +501,19 @@ export class PlayerService implements OnDestroy {
 
     const track = entry.track;
     this.currentTrack.set(track);
+    this.playRequested.set(true);
 
     // Sequence check to prevent out-of-order race conditions
     const thisSequence = ++this.loadSequence;
 
     try {
       await this.engine.load(track);
-      if (thisSequence === this.loadSequence && this.queue().length > 0) {
+      if (thisSequence === this.loadSequence && this.queue().length > 0 && this.playRequested()) {
         await this.engine.play();
       }
     } catch (err) {
       if (thisSequence === this.loadSequence && this.queue().length > 0) {
+        this.playRequested.set(false);
         this.error.set(`Cannot play track: ${track.title}`);
         // If track is unavailable, skip to next after a moment
         if (!track.isAvailable) {

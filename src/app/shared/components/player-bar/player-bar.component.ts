@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, ViewChild, inject, input, output } from '@angular/core';
+import { Component, HostListener, inject, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PlayerService } from '../../../core/player/player.service';
@@ -89,18 +89,16 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
             class="play-pause-btn"
             (click)="player.togglePlayPause()"
             [disabled]="!player.currentTrack() && player.queue().length === 0"
-            [title]="player.isPlaying() ? 'Pause (Space)' : 'Play (Space)'"
-            [attr.aria-label]="player.isPlaying() ? 'Pause' : 'Play'">
-            @if (player.isLoading()) {
-              <div class="btn-spinner" aria-hidden="true"></div>
-            } @else if (player.isPlaying()) {
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                <rect x="6" y="4" width="4" height="16"></rect>
-                <rect x="14" y="4" width="4" height="16"></rect>
+            [title]="player.isPlaybackActive() ? 'Pause (Space)' : 'Play (Space)'"
+            [attr.aria-label]="player.isPlaybackActive() ? 'Pause' : 'Play'">
+            @if (player.isPlaybackActive()) {
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <rect x="6" y="5" width="4" height="14" rx="1"></rect>
+                <rect x="14" y="5" width="4" height="14" rx="1"></rect>
               </svg>
             } @else {
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                <polygon points="6 4 20 12 6 20 6 4"></polygon>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <polygon points="8 5 19 12 8 19"></polygon>
               </svg>
             }
           </button>
@@ -150,10 +148,15 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
         <div class="timeline-row">
           <span class="time-label">{{ player.currentTime() | duration }}</span>
           <div
-            #timelineWrap
             class="progress-bar-wrap"
-            (click)="onSeekClick($event)"
+            (pointerdown)="onTimelinePointerDown($event)"
+            (pointermove)="onTimelinePointerMove($event)"
+            (pointerup)="onTimelinePointerUp($event)"
+            (pointercancel)="onTimelinePointerCancel($event)"
+            (keydown)="onTimelineKeyDown($event)"
             role="slider"
+            [attr.tabindex]="player.currentTrack() && player.duration() > 0 ? 0 : -1"
+            [attr.aria-disabled]="!player.currentTrack() || player.duration() <= 0"
             [attr.aria-valuenow]="player.currentTime()"
             [attr.aria-valuemin]="0"
             [attr.aria-valuemax]="player.duration()"
@@ -340,6 +343,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
       display: flex;
       align-items: center;
       gap: var(--space-4);
+      height: 32px;
     }
 
     .ctrl-btn {
@@ -347,13 +351,13 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
       height: 32px;
       border-radius: var(--radius-full);
       color: var(--text-secondary);
-      transition: color var(--transition-fast), transform var(--transition-fast);
+      transition: color var(--transition-fast), background var(--transition-fast);
       position: relative;
     }
 
     .ctrl-btn:hover:not(:disabled) {
       color: var(--text-primary);
-      transform: scale(1.08);
+      background: var(--bg-surface-hover);
     }
 
     .ctrl-btn.active {
@@ -361,31 +365,29 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
     }
 
     .play-pause-btn {
-      width: 40px;
-      height: 40px;
+      width: 32px;
+      height: 32px;
       border-radius: var(--radius-full);
       background: var(--accent-primary);
       color: #ffffff;
       box-shadow: 0 2px 8px var(--accent-glow);
-      transition: background var(--transition-fast), transform var(--transition-fast);
+      transition: background var(--transition-fast), box-shadow var(--transition-fast);
+      padding: 0;
+      line-height: 0;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .play-pause-btn svg {
+      display: block;
+      flex-shrink: 0;
     }
 
     .play-pause-btn:hover:not(:disabled) {
       background: var(--accent-hover);
-      transform: scale(1.08);
-    }
-
-    .btn-spinner {
-      width: 18px;
-      height: 18px;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-top-color: #ffffff;
-      border-radius: 50%;
-      animation: spin 800ms linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
+      box-shadow: 0 2px 10px var(--accent-glow);
     }
 
     .timeline-row {
@@ -409,6 +411,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
       display: flex;
       align-items: center;
       cursor: pointer;
+      touch-action: none;
     }
 
     .progress-bar-track {
@@ -547,22 +550,70 @@ export class PlayerBarComponent {
   readonly isQueueOpen = input<boolean>(false);
   readonly toggleQueue = output<void>();
 
-  @ViewChild('timelineWrap') timelineRef!: ElementRef<HTMLDivElement>;
-  @ViewChild('volumeWrap') volumeRef!: ElementRef<HTMLDivElement>;
+  private isTimelineScrubbing = false;
 
-  onSeekClick(event: MouseEvent): void {
+  onTimelinePointerDown(event: PointerEvent): void {
+    if (!this.canSeek()) return;
+    this.isTimelineScrubbing = true;
+    const target = event.currentTarget as HTMLElement;
+    try { target.setPointerCapture(event.pointerId); } catch { /* Synthetic events may not own a pointer. */ }
+    this.seekFromClientX(event.clientX, target);
+    event.preventDefault();
+  }
+
+  onTimelinePointerMove(event: PointerEvent): void {
+    if (!this.isTimelineScrubbing) return;
+    this.seekFromClientX(event.clientX, event.currentTarget as HTMLElement);
+  }
+
+  onTimelinePointerUp(event: PointerEvent): void {
+    if (!this.isTimelineScrubbing) return;
+    this.seekFromClientX(event.clientX, event.currentTarget as HTMLElement);
+    this.finishTimelineScrub(event);
+  }
+
+  onTimelinePointerCancel(event: PointerEvent): void {
+    this.finishTimelineScrub(event);
+  }
+
+  onTimelineKeyDown(event: KeyboardEvent): void {
+    if (!this.canSeek()) return;
+    const duration = this.player.duration();
+    let nextPosition: number | null = null;
+    if (event.key === 'ArrowLeft') nextPosition = this.player.currentTime() - 5;
+    else if (event.key === 'ArrowRight') nextPosition = this.player.currentTime() + 5;
+    else if (event.key === 'Home') nextPosition = 0;
+    else if (event.key === 'End') nextPosition = duration;
+    if (nextPosition === null) return;
+    event.preventDefault();
+    this.player.seek(Math.max(0, Math.min(duration, nextPosition)));
+  }
+
+  private seekFromClientX(clientX: number, target: HTMLElement): void {
     const totalDuration = this.player.duration();
-    if (!this.timelineRef || totalDuration <= 0) return;
-
-    const rect = this.timelineRef.nativeElement.getBoundingClientRect();
-    const clickX = event.clientX - rect.left;
+    const rect = target.getBoundingClientRect();
+    if (rect.width <= 0 || totalDuration <= 0) return;
+    const clickX = clientX - rect.left;
     const percent = Math.max(0, Math.min(1, clickX / rect.width));
     this.player.seek(percent * totalDuration);
   }
 
+  private finishTimelineScrub(event: PointerEvent): void {
+    this.isTimelineScrubbing = false;
+    const target = event.currentTarget as HTMLElement;
+    try {
+      if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId);
+    } catch { /* Pointer capture may already be released. */ }
+  }
+
+  private canSeek(): boolean {
+    return Boolean(this.player.currentTrack()) && this.player.duration() > 0;
+  }
+
   onVolumeClick(event: MouseEvent): void {
-    if (!this.volumeRef) return;
-    const rect = this.volumeRef.nativeElement.getBoundingClientRect();
+    const target = event.currentTarget as HTMLElement | null;
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
     const clickX = event.clientX - rect.left;
     const percent = Math.max(0, Math.min(1, clickX / rect.width));
     this.player.setVolume(percent);

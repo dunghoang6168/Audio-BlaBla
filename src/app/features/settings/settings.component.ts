@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY, SETTINGS_GATEWAY } from '../../core/contracts';
 import { MusicFolder, RepeatMode, Settings } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
+import { getDesktopApi } from '../../core/desktop/desktop-api';
 
 @Component({
   selector: 'app-settings',
@@ -27,16 +28,23 @@ import { PlayerService } from '../../core/player/player.service';
         </div>
       }
 
-      <!-- Phase 1 Integration / Persistence Notice -->
+      <!-- Runtime / Persistence Notice -->
       <div class="integration-notice-card">
         <div class="notice-icon">ℹ</div>
         <div class="notice-content">
-          <h3>Phase 1 Mock Environment (Browser Mode)</h3>
-          <p>
-            Settings, folder modifications and playlists are currently preserved in-memory across route navigation.
-            Reloading the browser resets them to fixture defaults.
-            Native OS folder picker, background file scanner, and persistent SQLite database will be connected in <strong>Phase 2</strong>.
-          </p>
+          @if (isDesktop) {
+            <h3>Electron Desktop Environment</h3>
+            <p>
+              Music folders, library metadata, playlists and playback settings are persisted locally with SQLite.
+              Audio playback and folder scanning use the desktop integration completed in <strong>Phase 2</strong>.
+            </p>
+          } @else {
+            <h3>Mock Environment (Browser Mode)</h3>
+            <p>
+              Settings, folder modifications and playlists are preserved in-memory across route navigation.
+              Reloading the browser resets them to fixture defaults; native filesystem access is only available in Electron.
+            </p>
+          }
         </div>
       </div>
 
@@ -163,7 +171,9 @@ import { PlayerService } from '../../core/player/player.service';
             </div>
             <div class="about-item">
               <span class="about-label">Integration Phase</span>
-              <span class="about-value">Phase 1 Complete (Mock Adapters)</span>
+              <span class="about-value">
+                {{ isDesktop ? 'Phase 2 Complete (Electron Desktop)' : 'Browser Mode (Mock Adapters)' }}
+              </span>
             </div>
           </div>
         </section>
@@ -481,6 +491,7 @@ export class SettingsComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly settingsGateway = inject(SETTINGS_GATEWAY);
   readonly player = inject(PlayerService);
+  readonly isDesktop = Boolean(getDesktopApi());
 
   readonly folders = signal<MusicFolder[]>([]);
   readonly isLoading = signal<boolean>(false);

@@ -2,7 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { LIBRARY_GATEWAY } from '../../../core/contracts';
-import { Album, Track } from '../../../core/models';
+import { Album, orderAlbumTracks, Track } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 
@@ -456,22 +456,21 @@ export class AlbumDetailComponent implements OnInit {
   readonly album = signal<Album | null>(null);
   readonly albumTracks = signal<Track[]>([]);
   readonly isLoading = signal<boolean>(true);
+  readonly orderedAlbumTracks = computed<Track[]>(() => orderAlbumTracks(this.albumTracks()));
 
   readonly discGroups = computed<DiscGroup[]>(() => {
-    const tracks = this.albumTracks();
+    const tracks = this.orderedAlbumTracks();
     const map = new Map<number, Track[]>();
 
     tracks.forEach((t) => {
-      const disc = t.discNumber || 1;
+      const disc = t.discNumber ?? 1;
       if (!map.has(disc)) map.set(disc, []);
       map.get(disc)!.push(t);
     });
 
     const groups: DiscGroup[] = [];
-    const sortedDiscs = Array.from(map.keys()).sort((a, b) => a - b);
-    sortedDiscs.forEach((d) => {
-      const sortedTracks = map.get(d)!.sort((a, b) => (a.trackNumber || 0) - (b.trackNumber || 0));
-      groups.push({ discNumber: d, tracks: sortedTracks });
+    map.forEach((discTracks, discNumber) => {
+      groups.push({ discNumber, tracks: discTracks });
     });
 
     return groups;
@@ -513,26 +512,26 @@ export class AlbumDetailComponent implements OnInit {
   }
 
   onPlayAll(): void {
-    const tracks = this.albumTracks();
+    const tracks = this.orderedAlbumTracks();
     if (tracks.length > 0) {
+      this.player.setShuffle(false);
       this.player.playCollection(tracks, 0);
     }
   }
 
   onShufflePlay(): void {
-    const tracks = this.albumTracks();
+    const tracks = this.orderedAlbumTracks();
     if (tracks.length > 0) {
-      if (!this.player.isShuffle()) {
-        this.player.toggleShuffle();
-      }
+      this.player.setShuffle(true);
       this.player.playCollection(tracks, 0);
     }
   }
 
   onPlayTrack(track: Track): void {
     if (!track.isAvailable) return;
-    const tracks = this.albumTracks();
+    const tracks = this.orderedAlbumTracks();
     const idx = tracks.findIndex((t) => t.id === track.id);
+    this.player.setShuffle(false);
     this.player.playCollection(tracks, Math.max(0, idx));
   }
 }

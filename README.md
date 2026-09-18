@@ -6,16 +6,18 @@ V1 quản lý thư mục nhạc trên máy, đọc metadata, duyệt thư viện
 
 ## Trạng thái hiện tại
 
-Phase 1 UI/UX và Phase 2 desktop integration đã được kết nối trong code:
+Phase 1 UI/UX và Phase 2 desktop integration đã hoàn thành và được nghiệm thu thủ công ở mức chức năng V1:
 
 - Browser mode dùng mock gateways để phát triển UI độc lập.
 - Electron mode dùng preload API, IPC handlers, filesystem scanner, `music-metadata`, SQLite và artwork cache.
 - Playback thật dùng một `HTMLAudioElement` qua `HtmlAudioPlaybackEngine` và URL dạng `music://track/<trackId>`.
 - Music folders, library, playlists và settings được lưu tại Electron `userData`.
 - Scanner đọc recursive MP3, FLAC, WAV, M4A/AAC, OGG và Opus; file lỗi không làm dừng toàn bộ scan.
-- Build Angular và Electron đã thành công. 38 Angular tests, 2 backend integration tests và Electron production smoke test đã thành công tại thời điểm cập nhật tài liệu.
+- Timeline hỗ trợ click, pointer drag và bàn phím; protocol audio hỗ trợ byte-range để seek file lớn.
+- Queue album được chuẩn hóa theo disc number và track number, không phụ thuộc thứ tự metadata trả về.
+- 51 Angular tests và 4 backend integration tests đã thành công tại thời điểm tạo checkpoint Phase 2.
 
-Chưa có installer, code signing hoặc phát hành Windows. Kiểm tra trực quan toàn bộ UI tại `1280 × 800` và `900 × 600`, native folder picker với library lớn, cùng playback thực tế trên nhiều codec/container vẫn cần thực hiện thủ công trên Windows.
+Nghiệm thu thủ công cơ bản trên Windows đã hoàn thành cho folder picker, scan library, playback, seek và chuyển bài. Chưa có installer, code signing hoặc bản phát hành Windows. Kiểm thử mở rộng với library lớn, nhiều codec/container và các trường hợp filesystem bất thường tiếp tục được thực hiện khi cần.
 
 ## Chức năng V1
 

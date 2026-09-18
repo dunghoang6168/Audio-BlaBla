@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY } from '../../core/contracts';
-import { Album, Track } from '../../core/models';
+import { Album, orderAlbumTracks, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 
 @Component({
@@ -78,7 +78,7 @@ import { PlayerService } from '../../core/player/player.service';
                   title="Play Album"
                   aria-label="Play Album">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                    <polygon points="6 4 20 12 6 20 6 4"></polygon>
+                    <polygon points="8 5 19 12 8 19"></polygon>
                   </svg>
                 </button>
               </div>
@@ -369,7 +369,8 @@ export class AlbumsComponent implements OnInit {
     });
 
     if (albumTracks.length > 0) {
-      this.player.playCollection(albumTracks, 0);
+      this.player.setShuffle(false);
+      this.player.playCollection(orderAlbumTracks(albumTracks), 0);
     }
   }
 }

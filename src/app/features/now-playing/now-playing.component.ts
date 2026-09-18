@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { PlayerService } from '../../core/player/player.service';
@@ -61,7 +61,20 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
             <div class="inline-controls">
               <div class="timeline-group">
                 <span class="time-label">{{ player.currentTime() | duration }}</span>
-                <div #timelineWrap class="timeline-bar-wrap" (click)="onSeekClick($event)" role="slider">
+                <div
+                  class="timeline-bar-wrap"
+                  (pointerdown)="onTimelinePointerDown($event)"
+                  (pointermove)="onTimelinePointerMove($event)"
+                  (pointerup)="onTimelinePointerUp($event)"
+                  (pointercancel)="onTimelinePointerCancel($event)"
+                  (keydown)="onTimelineKeyDown($event)"
+                  role="slider"
+                  [attr.tabindex]="player.currentTrack() && player.duration() > 0 ? 0 : -1"
+                  [attr.aria-disabled]="!player.currentTrack() || player.duration() <= 0"
+                  [attr.aria-valuenow]="player.currentTime()"
+                  [attr.aria-valuemin]="0"
+                  [attr.aria-valuemax]="player.duration()"
+                  aria-label="Timeline scrubber">
                   <div class="timeline-track">
                     <div class="timeline-fill" [style.width.%]="player.progressPercent()"></div>
                   </div>
@@ -102,16 +115,16 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
                   type="button"
                   class="btn-play-large"
                   (click)="player.togglePlayPause()"
-                  [title]="player.isPlaying() ? 'Pause' : 'Play'"
+                  [title]="player.isPlaybackActive() ? 'Pause' : 'Play'"
                   aria-label="Play or Pause">
-                  @if (player.isPlaying()) {
+                  @if (player.isPlaybackActive()) {
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                      <rect x="6" y="4" width="4" height="16"></rect>
-                      <rect x="14" y="4" width="4" height="16"></rect>
+                      <rect x="6" y="5" width="4" height="14" rx="1"></rect>
+                      <rect x="14" y="5" width="4" height="14" rx="1"></rect>
                     </svg>
                   } @else {
                     <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                      <polygon points="6 4 20 12 6 20 6 4"></polygon>
+                      <polygon points="8 5 19 12 8 19"></polygon>
                     </svg>
                   }
                 </button>
@@ -352,6 +365,7 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
       display: flex;
       align-items: center;
       cursor: pointer;
+      touch-action: none;
     }
 
     .timeline-track {
@@ -402,6 +416,16 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
       color: #ffffff;
       box-shadow: 0 4px 16px var(--accent-glow);
       transition: background var(--transition-fast), transform var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 0;
+    }
+
+    .btn-play-large svg {
+      display: block;
+      flex-shrink: 0;
     }
 
     .btn-play-large:hover {
@@ -564,16 +588,64 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
 })
 export class NowPlayingComponent {
   readonly player = inject(PlayerService);
-  @ViewChild('timelineWrap') timelineRef!: ElementRef<HTMLDivElement>;
+  private isTimelineScrubbing = false;
 
-  onSeekClick(event: MouseEvent): void {
+  onTimelinePointerDown(event: PointerEvent): void {
+    if (!this.canSeek()) return;
+    this.isTimelineScrubbing = true;
+    const target = event.currentTarget as HTMLElement;
+    try { target.setPointerCapture(event.pointerId); } catch { /* Synthetic events may not own a pointer. */ }
+    this.seekFromClientX(event.clientX, target);
+    event.preventDefault();
+  }
+
+  onTimelinePointerMove(event: PointerEvent): void {
+    if (!this.isTimelineScrubbing) return;
+    this.seekFromClientX(event.clientX, event.currentTarget as HTMLElement);
+  }
+
+  onTimelinePointerUp(event: PointerEvent): void {
+    if (!this.isTimelineScrubbing) return;
+    this.seekFromClientX(event.clientX, event.currentTarget as HTMLElement);
+    this.finishTimelineScrub(event);
+  }
+
+  onTimelinePointerCancel(event: PointerEvent): void {
+    this.finishTimelineScrub(event);
+  }
+
+  onTimelineKeyDown(event: KeyboardEvent): void {
+    if (!this.canSeek()) return;
+    const duration = this.player.duration();
+    let nextPosition: number | null = null;
+    if (event.key === 'ArrowLeft') nextPosition = this.player.currentTime() - 5;
+    else if (event.key === 'ArrowRight') nextPosition = this.player.currentTime() + 5;
+    else if (event.key === 'Home') nextPosition = 0;
+    else if (event.key === 'End') nextPosition = duration;
+    if (nextPosition === null) return;
+    event.preventDefault();
+    this.player.seek(Math.max(0, Math.min(duration, nextPosition)));
+  }
+
+  private seekFromClientX(clientX: number, target: HTMLElement): void {
     const totalDuration = this.player.duration();
-    if (!this.timelineRef || totalDuration <= 0) return;
-
-    const rect = this.timelineRef.nativeElement.getBoundingClientRect();
-    const clickX = event.clientX - rect.left;
+    const rect = target.getBoundingClientRect();
+    if (rect.width <= 0 || totalDuration <= 0) return;
+    const clickX = clientX - rect.left;
     const percent = Math.max(0, Math.min(1, clickX / rect.width));
     this.player.seek(percent * totalDuration);
+  }
+
+  private finishTimelineScrub(event: PointerEvent): void {
+    this.isTimelineScrubbing = false;
+    const target = event.currentTarget as HTMLElement;
+    try {
+      if (target.hasPointerCapture(event.pointerId)) target.releasePointerCapture(event.pointerId);
+    } catch { /* Pointer capture may already be released. */ }
+  }
+
+  private canSeek(): boolean {
+    return Boolean(this.player.currentTrack()) && this.player.duration() > 0;
   }
 
   formatFileSize(bytes: number | null): string {

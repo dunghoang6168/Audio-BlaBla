@@ -70,7 +70,7 @@ import { PlayerService } from '../../core/player/player.service';
                   title="Play artist tracks"
                   aria-label="Play artist tracks">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                    <polygon points="6 4 20 12 6 20 6 4"></polygon>
+                    <polygon points="8 5 19 12 8 19"></polygon>
                   </svg>
                 </button>
               </div>
