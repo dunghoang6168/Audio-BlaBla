@@ -5,18 +5,17 @@ import { LIBRARY_GATEWAY } from '../../../core/contracts';
 import { Album, Artist, Track } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
+import { IconComponent } from '../../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-artist-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, DurationPipe],
+  imports: [CommonModule, RouterModule, DurationPipe, IconComponent],
   template: `
     <div class="artist-detail-page">
       <nav class="breadcrumb">
         <a routerLink="/artists" class="back-link">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
+          <app-icon name="chevron-left" [size]="16" />
           Back to Artists
         </a>
       </nav>
@@ -52,10 +51,9 @@ import { DurationPipe } from '../../../shared/pipes/duration.pipe';
                 type="button"
                 class="btn-play"
                 (click)="onPlayAll()"
-                [disabled]="artistTracks().length === 0">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
+                [disabled]="artistTracks().length === 0"
+                aria-label="Play All Songs">
+                <app-icon name="play" [size]="18" />
                 Play All Songs
               </button>
             </div>
@@ -73,7 +71,9 @@ import { DurationPipe } from '../../../shared/pipes/duration.pipe';
                     @if (album.artwork) {
                       <img [src]="album.artwork" [alt]="album.title" class="cover-img" />
                     } @else {
-                      <div class="cover-placeholder" aria-hidden="true">♪</div>
+                      <div class="cover-placeholder" aria-hidden="true">
+                        <app-icon name="disc" [size]="32" />
+                      </div>
                     }
                   </div>
                   <h4 class="album-title truncate" [title]="album.title">{{ album.title }}</h4>
@@ -108,7 +108,9 @@ import { DurationPipe } from '../../../shared/pipes/duration.pipe';
                     (keydown.enter)="onPlayTrack(track, i)">
                     <td class="col-num">
                       @if (player.currentTrack()?.id === track.id) {
-                        <span class="playing-icon">▶</span>
+                        <span class="playing-icon">
+                          <app-icon name="play" [size]="12" />
+                        </span>
                       } @else {
                         {{ i + 1 }}
                       }

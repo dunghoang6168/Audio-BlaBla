@@ -8,6 +8,13 @@ import { DatabaseService, StoredTrack } from '../services/database.service.js';
 import { ScannerService } from '../services/scanner.service.js';
 import { isPathInside, pathKey, pathsOverlap, stableId } from '../utils/path-utils.js';
 import { createFileResponse } from '../protocols/file-response.js';
+import { validSettings } from '../ipc/settings-validation.js';
+
+test('settings IPC accepts allowlisted themes and rejects invalid values', () => {
+  assert.deepEqual(validSettings({ themePreset: 'sage', accentColor: 'amber' }), { themePreset: 'sage', accentColor: 'amber' });
+  assert.throws(() => validSettings({ themePreset: 'light' }), /Invalid theme preset/);
+  assert.throws(() => validSettings({ accentColor: '#ffffff' }), /Invalid accent color/);
+});
 
 test('path helpers normalize identity and reject sibling traversal', () => {
   const root = path.resolve('C:/Music');
@@ -115,13 +122,15 @@ test('scanner, reconciliation, playlists, settings and database persistence', as
     const withDuplicates = database.addPlaylistTracks(playlist.id, [firstTrackId, firstTrackId]);
     assert.equal(withDuplicates.entries.length, 2);
     assert.notEqual(withDuplicates.entries[0]?.id, withDuplicates.entries[1]?.id);
-    database.saveSettings({ defaultVolume: 0.35, repeatMode: 'all', shuffle: true });
+    database.saveSettings({ defaultVolume: 0.35, repeatMode: 'all', shuffle: true, themePreset: 'ocean', accentColor: 'cyan' });
 
     database.close();
     database = new DatabaseService(databasePath);
     assert.equal(database.listPlaylists()[0]?.entries.length, 2);
     assert.equal(database.getSettings().defaultVolume, 0.35);
     assert.equal(database.getSettings().repeatMode, 'all');
+    assert.equal(database.getSettings().themePreset, 'ocean');
+    assert.equal(database.getSettings().accentColor, 'cyan');
 
     await unlink(audioPath);
     const reopenedScanner = new ScannerService(database, new ArtworkService(artworkPath, database), () => undefined);

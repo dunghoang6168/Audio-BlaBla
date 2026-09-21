@@ -5,11 +5,12 @@ import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY } from '../../core/contracts';
 import { Album, orderAlbumTracks, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-albums',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, IconComponent],
   template: `
     <div class="albums-page">
       <header class="page-header">
@@ -19,10 +20,7 @@ import { PlayerService } from '../../core/player/player.service';
         </div>
 
         <div class="search-box">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" class="search-icon">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
+          <app-icon name="search" [size]="16" class="search-icon" />
           <input
             type="text"
             [ngModel]="searchQuery()"
@@ -30,18 +28,16 @@ import { PlayerService } from '../../core/player/player.service';
             placeholder="Search albums by title or artist..."
             aria-label="Search albums" />
           @if (searchQuery()) {
-            <button type="button" class="clear-btn" (click)="searchQuery.set('')">&times;</button>
+            <button type="button" class="clear-btn" (click)="searchQuery.set('')" title="Clear search" aria-label="Clear search">
+              <app-icon name="x" [size]="14" />
+            </button>
           }
         </div>
       </header>
 
       @if (errorMessage()) {
         <div class="error-state" role="alert">
-          <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" stroke-width="1.5">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
+          <app-icon name="alert-triangle" [size]="48" />
           <p class="error-title">Failed to load albums</p>
           <p class="error-desc">{{ errorMessage() }}</p>
           <button type="button" class="btn-retry" (click)="loadAlbums()">Retry</button>
@@ -53,7 +49,9 @@ import { PlayerService } from '../../core/player/player.service';
         </div>
       } @else if (filteredAlbums().length === 0) {
         <div class="empty-state">
-          <p>No albums found.</p>
+          <app-icon name="disc" [size]="48" class="empty-icon" />
+          <p class="empty-title">No albums found</p>
+          <p class="empty-desc">No albums match your search or your library is empty.</p>
         </div>
       } @else {
         <div class="albums-grid">
@@ -64,10 +62,7 @@ import { PlayerService } from '../../core/player/player.service';
                   <img [src]="album.artwork" [alt]="album.title" class="cover-img" />
                 } @else {
                   <div class="cover-placeholder" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" stroke-width="1.5">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
+                    <app-icon name="disc" [size]="48" />
                   </div>
                 }
                 <!-- Quick Play Overlay Button -->
@@ -77,9 +72,7 @@ import { PlayerService } from '../../core/player/player.service';
                   (click)="onPlayAlbum($event, album)"
                   title="Play Album"
                   aria-label="Play Album">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-                    <polygon points="8 5 19 12 8 19"></polygon>
-                  </svg>
+                  <app-icon name="play" [size]="20" />
                 </button>
               </div>
 
@@ -178,7 +171,7 @@ import { PlayerService } from '../../core/player/player.service';
     .album-card:hover {
       background: var(--bg-surface-hover);
       transform: translateY(-4px);
-      border-color: rgba(139, 92, 246, 0.4);
+      border-color: var(--color-accent-glow);
     }
 
     .cover-wrapper {

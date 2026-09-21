@@ -4,11 +4,12 @@ import { RouterModule } from '@angular/router';
 import { PlayerService } from '../../../core/player/player.service';
 import { DurationPipe } from '../../pipes/duration.pipe';
 import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
+import { IconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-player-bar',
   standalone: true,
-  imports: [CommonModule, RouterModule, DurationPipe, QualityLabelPipe],
+  imports: [CommonModule, RouterModule, DurationPipe, QualityLabelPipe, IconComponent],
   template: `
     <footer class="player-bar" role="region" aria-label="Audio Player">
       <!-- Left: Current Track Info (Click opens Now Playing) -->
@@ -19,10 +20,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
               <img [src]="track.artwork" [alt]="track.title" class="artwork-img" />
             } @else {
               <div class="artwork-placeholder" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
+                <app-icon name="disc" [size]="20" />
               </div>
             }
           </a>
@@ -36,10 +34,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
           </div>
         } @else {
           <div class="artwork-placeholder empty" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
+            <app-icon name="disc" [size]="20" />
           </div>
           <div class="track-meta">
             <span class="track-title empty truncate">No track selected</span>
@@ -60,13 +55,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
             [disabled]="player.queue().length === 0"
             title="Shuffle (S)"
             aria-label="Toggle Shuffle">
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="16 3 21 3 21 8"></polyline>
-              <line x1="4" y1="20" x2="21" y2="3"></line>
-              <polyline points="21 16 21 21 16 21"></polyline>
-              <line x1="15" y1="15" x2="21" y2="21"></line>
-              <line x1="4" y1="4" x2="9" y2="9"></line>
-            </svg>
+            <app-icon name="shuffle" [size]="16" />
           </button>
 
           <!-- Previous Button -->
@@ -77,10 +66,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
             [disabled]="!player.currentTrack()"
             title="Previous (P)"
             aria-label="Previous Track">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="19 20 9 12 19 4 19 20"></polygon>
-              <line x1="5" y1="19" x2="5" y2="5"></line>
-            </svg>
+            <app-icon name="skip-back" [size]="18" />
           </button>
 
           <!-- Play / Pause Button -->
@@ -92,14 +78,9 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
             [title]="player.isPlaybackActive() ? 'Pause (Space)' : 'Play (Space)'"
             [attr.aria-label]="player.isPlaybackActive() ? 'Pause' : 'Play'">
             @if (player.isPlaybackActive()) {
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <rect x="6" y="5" width="4" height="14" rx="1"></rect>
-                <rect x="14" y="5" width="4" height="14" rx="1"></rect>
-              </svg>
+              <app-icon name="pause" [size]="18" />
             } @else {
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <polygon points="8 5 19 12 8 19"></polygon>
-              </svg>
+              <app-icon name="play" [size]="18" />
             }
           </button>
 
@@ -111,10 +92,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
             [disabled]="!player.currentTrack()"
             title="Next (N)"
             aria-label="Next Track">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="5 4 15 12 5 20 5 4"></polygon>
-              <line x1="19" y1="5" x2="19" y2="19"></line>
-            </svg>
+            <app-icon name="skip-forward" [size]="18" />
           </button>
 
           <!-- Repeat Mode Button -->
@@ -125,22 +103,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
             (click)="player.cycleRepeatMode()"
             [title]="'Repeat Mode: ' + player.repeatMode() + ' (R)'"
             aria-label="Toggle Repeat Mode">
-            @if (player.repeatMode() === 'one') {
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="17 1 21 5 17 9"></polyline>
-                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
-                <polyline points="7 23 3 19 7 15"></polyline>
-                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
-                <text x="10" y="15" font-size="8" font-weight="bold" fill="currentColor" stroke="none">1</text>
-              </svg>
-            } @else {
-              <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="17 1 21 5 17 9"></polyline>
-                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
-                <polyline points="7 23 3 19 7 15"></polyline>
-                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
-              </svg>
-            }
+            <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="16" />
           </button>
         </div>
 
@@ -189,19 +152,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
             (click)="player.toggleMute()"
             [title]="player.isMuted() ? 'Unmute (M)' : 'Mute (M)'"
             aria-label="Mute or Unmute">
-            @if (player.isMuted() || player.volume() === 0) {
-              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                <line x1="23" y1="9" x2="17" y2="15"></line>
-                <line x1="17" y1="9" x2="23" y2="15"></line>
-              </svg>
-            } @else {
-              <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
-              </svg>
-            }
+            <app-icon [name]="player.isMuted() || player.volume() === 0 ? 'volume-x' : 'volume-2'" [size]="18" />
           </button>
           <div
             #volumeWrap
@@ -226,14 +177,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
           (click)="toggleQueue.emit()"
           title="Toggle Queue Drawer (Q)"
           aria-label="Toggle Playback Queue Drawer">
-          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="8" y1="6" x2="21" y2="6"></line>
-            <line x1="8" y1="12" x2="21" y2="12"></line>
-            <line x1="8" y1="18" x2="21" y2="18"></line>
-            <line x1="3" y1="6" x2="3.01" y2="6"></line>
-            <line x1="3" y1="12" x2="3.01" y2="12"></line>
-            <line x1="3" y1="18" x2="3.01" y2="18"></line>
-          </svg>
+          <app-icon name="queue" [size]="18" />
           @if (player.queue().length > 0) {
             <span class="queue-badge">{{ player.queue().length }}</span>
           }
@@ -244,8 +188,9 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
   styles: [`
     .player-bar {
       height: var(--player-bar-height);
-      background: var(--bg-surface);
-      border-top: 1px solid var(--border-subtle);
+      background: var(--color-surface);
+      border-top: 1px solid var(--color-border-subtle);
+      transition: background-color var(--transition-normal), border-color var(--transition-normal), color var(--transition-normal);
       display: grid;
       grid-template-columns: 280px 1fr 320px;
       align-items: center;
@@ -417,7 +362,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
     .progress-bar-track {
       width: 100%;
       height: 4px;
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--color-border);
       border-radius: var(--radius-full);
       position: relative;
       overflow: hidden;
@@ -448,8 +393,8 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
       align-items: flex-end;
       padding: var(--space-1) var(--space-2);
       border-radius: var(--radius-sm);
-      background: rgba(139, 92, 246, 0.08);
-      border: 1px solid rgba(139, 92, 246, 0.2);
+      background: var(--color-accent-muted);
+      border: 1px solid var(--color-accent-glow);
     }
 
     .quality-label {
@@ -484,7 +429,7 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
     .volume-bar-track {
       width: 100%;
       height: 4px;
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--color-border);
       border-radius: var(--radius-full);
       position: relative;
       overflow: hidden;
@@ -541,6 +486,19 @@ import { QualityLabelPipe } from '../../pipes/quality-label.pipe';
       }
       .quality-tag {
         display: none;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .player-bar {
+        grid-template-columns: 180px 1fr 180px;
+        padding: 0 var(--space-2);
+      }
+      .volume-bar-wrap {
+        width: 60px;
+      }
+      .buttons-row {
+        gap: var(--space-2);
       }
     }
   `]

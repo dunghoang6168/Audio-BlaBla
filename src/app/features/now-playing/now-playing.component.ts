@@ -4,11 +4,12 @@ import { RouterModule } from '@angular/router';
 import { PlayerService } from '../../core/player/player.service';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-now-playing',
   standalone: true,
-  imports: [CommonModule, RouterModule, DurationPipe, QualityLabelPipe],
+  imports: [CommonModule, RouterModule, DurationPipe, QualityLabelPipe, IconComponent],
   template: `
     <div class="now-playing-page">
       @if (player.currentTrack(); as track) {
@@ -20,10 +21,7 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
                 <img [src]="track.artwork" [alt]="track.title" class="large-artwork-img" />
               } @else {
                 <div class="large-artwork-placeholder" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" width="80" height="80" stroke="currentColor" fill="none" stroke-width="1.5">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <circle cx="12" cy="12" r="3"></circle>
-                  </svg>
+                  <app-icon name="disc" [size]="80" />
                 </div>
               }
             </div>
@@ -90,13 +88,7 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
                   (click)="player.toggleShuffle()"
                   title="Toggle Shuffle"
                   aria-label="Toggle Shuffle">
-                  <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
-                    <polyline points="16 3 21 3 21 8"></polyline>
-                    <line x1="4" y1="20" x2="21" y2="3"></line>
-                    <polyline points="21 16 21 21 16 21"></polyline>
-                    <line x1="15" y1="15" x2="21" y2="21"></line>
-                    <line x1="4" y1="4" x2="9" y2="9"></line>
-                  </svg>
+                  <app-icon name="shuffle" [size]="18" />
                 </button>
 
                 <button
@@ -105,10 +97,7 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
                   (click)="player.previous()"
                   title="Previous Track"
                   aria-label="Previous Track">
-                  <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-                    <polygon points="19 20 9 12 19 4 19 20"></polygon>
-                    <line x1="5" y1="19" x2="5" y2="5"></line>
-                  </svg>
+                  <app-icon name="skip-back" [size]="20" />
                 </button>
 
                 <button
@@ -118,14 +107,9 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
                   [title]="player.isPlaybackActive() ? 'Pause' : 'Play'"
                   aria-label="Play or Pause">
                   @if (player.isPlaybackActive()) {
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                      <rect x="6" y="5" width="4" height="14" rx="1"></rect>
-                      <rect x="14" y="5" width="4" height="14" rx="1"></rect>
-                    </svg>
+                    <app-icon name="pause" [size]="24" />
                   } @else {
-                    <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                      <polygon points="8 5 19 12 8 19"></polygon>
-                    </svg>
+                    <app-icon name="play" [size]="24" />
                   }
                 </button>
 
@@ -135,10 +119,7 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
                   (click)="player.next()"
                   title="Next Track"
                   aria-label="Next Track">
-                  <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2">
-                    <polygon points="5 4 15 12 5 20 5 4"></polygon>
-                    <line x1="19" y1="5" x2="19" y2="19"></line>
-                  </svg>
+                  <app-icon name="skip-forward" [size]="20" />
                 </button>
 
                 <button
@@ -148,22 +129,7 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
                   (click)="player.cycleRepeatMode()"
                   [title]="'Repeat Mode: ' + player.repeatMode()"
                   aria-label="Toggle Repeat Mode">
-                  @if (player.repeatMode() === 'one') {
-                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
-                      <polyline points="17 1 21 5 17 9"></polyline>
-                      <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
-                      <polyline points="7 23 3 19 7 15"></polyline>
-                      <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
-                      <text x="10" y="15" font-size="8" font-weight="bold" fill="currentColor" stroke="none">1</text>
-                    </svg>
-                  } @else {
-                    <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2">
-                      <polyline points="17 1 21 5 17 9"></polyline>
-                      <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
-                      <polyline points="7 23 3 19 7 15"></polyline>
-                      <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
-                    </svg>
-                  }
+                  <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="18" />
                 </button>
               </div>
             </div>
@@ -214,10 +180,7 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
       } @else {
         <div class="empty-screen">
           <div class="empty-icon-circle">
-            <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" stroke-width="1.5">
-              <circle cx="12" cy="12" r="10"></circle>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
+            <app-icon name="disc" [size]="48" />
           </div>
           <h2>Nothing is Currently Playing</h2>
           <p>Choose a track from your library or start a playlist to enjoy your music.</p>
@@ -231,7 +194,7 @@ import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
       height: 100%;
       overflow-y: auto;
       padding: var(--space-8);
-      background: radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 50%), var(--bg-app);
+      background: radial-gradient(circle at top right, var(--color-accent-muted), transparent 50%), var(--bg-app);
       display: flex;
       flex-direction: column;
     }

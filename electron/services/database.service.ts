@@ -1,6 +1,6 @@
 import type { DatabaseSync as DatabaseSyncType } from 'node:sqlite';
 import path from 'node:path';
-import { Album, Artist, FolderNode, MusicFolder, orderAlbumTracks, Playlist, PlaylistEntry, Settings, Track } from '../../src/app/core/models/index.js';
+import { Album, Artist, DEFAULT_ACCENT_COLOR, DEFAULT_THEME_PRESET, FolderNode, isAccentColor, isThemePreset, MusicFolder, orderAlbumTracks, Playlist, PlaylistEntry, Settings, Track } from '../../src/app/core/models/index.js';
 import { LibrarySnapshot } from '../../src/app/core/contracts/library.gateway.js';
 import { pathKey, stableId } from '../utils/path-utils.js';
 
@@ -195,11 +195,14 @@ export class DatabaseService {
 
   getSettings(): Settings {
     const row = this.db.prepare("SELECT value FROM settings WHERE key='app'").get() as Row | undefined;
-    const defaults: Settings = { musicFolders: this.listFolders(), defaultVolume: 0.8, repeatMode: 'off', shuffle: false, theme: 'dark' };
+    const defaults: Settings = { musicFolders: this.listFolders(), defaultVolume: 0.8, repeatMode: 'off', shuffle: false, themePreset: DEFAULT_THEME_PRESET, accentColor: DEFAULT_ACCENT_COLOR };
     if (!row) return defaults;
-    try { return { ...defaults, ...(JSON.parse(String(row['value'])) as Partial<Settings>), musicFolders: this.listFolders(), theme: 'dark' }; } catch { return defaults; }
+    try {
+      const stored = JSON.parse(String(row['value'])) as Partial<Settings>;
+      return { ...defaults, ...stored, musicFolders: this.listFolders(), themePreset: isThemePreset(stored.themePreset) ? stored.themePreset : DEFAULT_THEME_PRESET, accentColor: isAccentColor(stored.accentColor) ? stored.accentColor : DEFAULT_ACCENT_COLOR };
+    } catch { return defaults; }
   }
-  saveSettings(settings: Partial<Settings>): Settings { const current=this.getSettings(); const next: Settings={ ...current, ...settings, musicFolders:this.listFolders(), theme:'dark', defaultVolume:Math.max(0,Math.min(1,settings.defaultVolume ?? current.defaultVolume)) }; this.db.prepare("INSERT INTO settings(key,value) VALUES('app',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(next)); return next; }
+  saveSettings(settings: Partial<Settings>): Settings { const current=this.getSettings(); const next: Settings={ ...current, ...settings, musicFolders:this.listFolders(), themePreset:isThemePreset(settings.themePreset) ? settings.themePreset : current.themePreset, accentColor:isAccentColor(settings.accentColor) ? settings.accentColor : current.accentColor, defaultVolume:Math.max(0,Math.min(1,settings.defaultVolume ?? current.defaultVolume)) }; this.db.prepare("INSERT INTO settings(key,value) VALUES('app',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value").run(JSON.stringify(next)); return next; }
 
   private requirePlaylist(id: string): Playlist { const playlist=this.listPlaylists().find((item)=>item.id===id); if(!playlist) throw new Error('Playlist not found'); return playlist; }
   private touchPlaylist(id: string): void { this.db.prepare('UPDATE playlists SET updated_at=? WHERE id=?').run(Date.now(),id); }

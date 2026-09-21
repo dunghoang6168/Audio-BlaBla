@@ -1,0 +1,252 @@
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+export type IconName =
+  | 'headphones'
+  | 'home'
+  | 'music'
+  | 'disc'
+  | 'user'
+  | 'folder'
+  | 'list-music'
+  | 'settings'
+  | 'chevron-left'
+  | 'chevron-right'
+  | 'menu'
+  | 'play'
+  | 'pause'
+  | 'skip-back'
+  | 'skip-forward'
+  | 'shuffle'
+  | 'repeat'
+  | 'repeat-one'
+  | 'volume-2'
+  | 'volume-x'
+  | 'queue'
+  | 'search'
+  | 'x'
+  | 'plus'
+  | 'trash'
+  | 'edit'
+  | 'refresh-cw'
+  | 'arrow-up'
+  | 'arrow-down'
+  | 'clock'
+  | 'alert-triangle'
+  | 'info'
+  | 'check'
+  | 'sparkles'
+  | 'file-audio'
+  | 'play-fill';
+
+@Component({
+  selector: 'app-icon',
+  standalone: true,
+  imports: [CommonModule],
+  template: `
+    <svg
+      [attr.viewBox]="viewBox()"
+      [attr.width]="size()"
+      [attr.height]="size()"
+      [attr.stroke-width]="strokeWidth()"
+      [attr.stroke]="isFilled() ? 'none' : 'currentColor'"
+      [attr.fill]="isFilled() ? 'currentColor' : 'none'"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="app-icon"
+      aria-hidden="true">
+      @switch (name()) {
+        @case ('headphones') {
+          <path d="M3 18v-6a9 9 0 0 1 18 0v6"></path>
+          <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path>
+        }
+        @case ('home') {
+          <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        }
+        @case ('music') {
+          <path d="M9 18V5l12-2v13"></path>
+          <circle cx="6" cy="18" r="3"></circle>
+          <circle cx="18" cy="16" r="3"></circle>
+        }
+        @case ('disc') {
+          <circle cx="12" cy="12" r="10"></circle>
+          <circle cx="12" cy="12" r="3"></circle>
+        }
+        @case ('user') {
+          <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        }
+        @case ('folder') {
+          <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 8 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"></path>
+        }
+        @case ('list-music') {
+          <line x1="21" x2="3" y1="6" y2="6"></line>
+          <line x1="15" x2="3" y1="12" y2="12"></line>
+          <line x1="17" x2="3" y1="18" y2="18"></line>
+          <path d="m19 10 3 3-3 3"></path>
+        }
+        @case ('settings') {
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+        }
+        @case ('chevron-left') {
+          <polyline points="15 18 9 12 15 6"></polyline>
+        }
+        @case ('chevron-right') {
+          <polyline points="9 18 15 12 9 6"></polyline>
+        }
+        @case ('menu') {
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        }
+        @case ('play') {
+          <polygon points="8 5 19 12 8 19"></polygon>
+        }
+        @case ('play-fill') {
+          <polygon points="8 5 19 12 8 19"></polygon>
+        }
+        @case ('pause') {
+          <rect x="6" y="5" width="4" height="14" rx="1"></rect>
+          <rect x="14" y="5" width="4" height="14" rx="1"></rect>
+        }
+        @case ('skip-back') {
+          <polygon points="19 20 9 12 19 4 19 20"></polygon>
+          <line x1="5" y1="19" x2="5" y2="5"></line>
+        }
+        @case ('skip-forward') {
+          <polygon points="5 4 15 12 5 20 5 4"></polygon>
+          <line x1="19" y1="5" x2="19" y2="19"></line>
+        }
+        @case ('shuffle') {
+          <polyline points="16 3 21 3 21 8"></polyline>
+          <line x1="4" y1="20" x2="21" y2="3"></line>
+          <polyline points="21 16 21 21 16 21"></polyline>
+          <line x1="15" y1="15" x2="21" y2="21"></line>
+          <line x1="4" y1="4" x2="9" y2="9"></line>
+        }
+        @case ('repeat') {
+          <polyline points="17 1 21 5 17 9"></polyline>
+          <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+          <polyline points="7 23 3 19 7 15"></polyline>
+          <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+        }
+        @case ('repeat-one') {
+          <polyline points="17 1 21 5 17 9"></polyline>
+          <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+          <polyline points="7 23 3 19 7 15"></polyline>
+          <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+          <line x1="12" y1="10" x2="12" y2="14"></line>
+          <polyline points="10.5 11.5 12 10"></polyline>
+        }
+        @case ('volume-2') {
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+        }
+        @case ('volume-x') {
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <line x1="23" y1="9" x2="17" y2="15"></line>
+          <line x1="17" y1="9" x2="23" y2="15"></line>
+        }
+        @case ('queue') {
+          <line x1="8" y1="6" x2="21" y2="6"></line>
+          <line x1="8" y1="12" x2="21" y2="12"></line>
+          <line x1="8" y1="18" x2="21" y2="18"></line>
+          <line x1="3" y1="6" x2="3.01" y2="6"></line>
+          <line x1="3" y1="12" x2="3.01" y2="12"></line>
+          <line x1="3" y1="18" x2="3.01" y2="18"></line>
+        }
+        @case ('search') {
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        }
+        @case ('x') {
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        }
+        @case ('plus') {
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        }
+        @case ('trash') {
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        }
+        @case ('edit') {
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        }
+        @case ('refresh-cw') {
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+        }
+        @case ('arrow-up') {
+          <line x1="12" y1="19" x2="12" y2="5"></line>
+          <polyline points="5 12 12 5 19 12"></polyline>
+        }
+        @case ('arrow-down') {
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <polyline points="19 12 12 19 5 12"></polyline>
+        }
+        @case ('clock') {
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        }
+        @case ('alert-triangle') {
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        }
+        @case ('info') {
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        }
+        @case ('check') {
+          <polyline points="20 6 9 17 4 12"></polyline>
+        }
+        @case ('sparkles') {
+          <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"></path>
+        }
+        @case ('file-audio') {
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <path d="M10 16.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"></path>
+          <path d="M11.5 15V11l3-1v3"></path>
+        }
+      }
+    </svg>
+  `,
+  styles: [`
+    :host {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+
+    .app-icon {
+      display: block;
+      flex-shrink: 0;
+      transition: stroke var(--transition-fast), fill var(--transition-fast);
+    }
+  `],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class IconComponent {
+  readonly name = input.required<IconName>();
+  readonly size = input<number>(18);
+  readonly strokeWidth = input<number>(2);
+  readonly filled = input<boolean | undefined>(undefined);
+
+  readonly isFilled = computed<boolean>(() => {
+    const explicit = this.filled();
+    if (explicit !== undefined) return explicit;
+    return this.name() === 'play' || this.name() === 'play-fill' || this.name() === 'pause';
+  });
+
+  readonly viewBox = computed<string>(() => '0 0 24 24');
+}

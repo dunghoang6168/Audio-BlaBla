@@ -4,6 +4,7 @@ import { MusicFolder, ScanProgress } from '../../src/app/core/models/index.js';
 import { canonicalPath, pathsOverlap } from '../utils/path-utils.js';
 import { DatabaseService } from '../services/database.service.js';
 import { ScannerService } from '../services/scanner.service.js';
+import { validSettings } from './settings-validation.js';
 
 const ID_PATTERN = /^[a-z]+-[a-f0-9]{64}$/;
 
@@ -60,12 +61,4 @@ function trustedSender(event: IpcMainInvokeEvent, development: boolean): boolean
 function validId(value: unknown): string { if (typeof value !== 'string' || !ID_PATTERN.test(value)) throw new Error('Invalid identifier'); return value; }
 function validIdArray(value: unknown): string[] { if (!Array.isArray(value) || value.length > 10000) throw new Error('Invalid identifier list'); return value.map(validId); }
 function validName(value: unknown): string { if (typeof value !== 'string' || value.trim().length < 1 || value.trim().length > 200) throw new Error('Invalid name'); return value.trim(); }
-function validSettings(value: unknown) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid settings');
-  const input = value as Record<string, unknown>; const result: Record<string, unknown> = {};
-  if ('defaultVolume' in input) { if (typeof input['defaultVolume'] !== 'number') throw new Error('Invalid volume'); result['defaultVolume'] = input['defaultVolume']; }
-  if ('repeatMode' in input) { if (!['off','one','all'].includes(String(input['repeatMode']))) throw new Error('Invalid repeat mode'); result['repeatMode'] = input['repeatMode']; }
-  if ('shuffle' in input) { if (typeof input['shuffle'] !== 'boolean') throw new Error('Invalid shuffle setting'); result['shuffle'] = input['shuffle']; }
-  return result;
-}
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }

@@ -6,6 +6,7 @@ import { LIBRARY_GATEWAY, PLAYLIST_GATEWAY } from '../../../core/contracts';
 import { Playlist, PlaylistEntry, Track } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
+import { IconComponent } from '../../../shared/components/icon/icon.component';
 
 interface PlaylistTrackRow {
   entry: PlaylistEntry;
@@ -15,14 +16,12 @@ interface PlaylistTrackRow {
 @Component({
   selector: 'app-playlist-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, DurationPipe],
+  imports: [CommonModule, RouterModule, FormsModule, DurationPipe, IconComponent],
   template: `
     <div class="playlist-detail-page">
       <nav class="breadcrumb">
         <a routerLink="/playlists" class="back-link">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
+          <app-icon name="chevron-left" [size]="16" />
           Back to Playlists
         </a>
       </nav>
@@ -42,14 +41,7 @@ interface PlaylistTrackRow {
         <!-- Playlist Hero -->
         <header class="playlist-hero">
           <div class="hero-icon-box">
-            <svg viewBox="0 0 24 24" width="64" height="64" stroke="currentColor" fill="none" stroke-width="1.5">
-              <line x1="8" y1="6" x2="21" y2="6"></line>
-              <line x1="8" y1="12" x2="21" y2="12"></line>
-              <line x1="8" y1="18" x2="21" y2="18"></line>
-              <line x1="3" y1="6" x2="3.01" y2="6"></line>
-              <line x1="3" y1="12" x2="3.01" y2="12"></line>
-              <line x1="3" y1="18" x2="3.01" y2="18"></line>
-            </svg>
+            <app-icon name="list-music" [size]="64" />
           </div>
 
           <div class="hero-info">
@@ -64,10 +56,9 @@ interface PlaylistTrackRow {
                 type="button"
                 class="btn-play"
                 (click)="onPlayAll()"
-                [disabled]="trackRows().length === 0">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
+                [disabled]="trackRows().length === 0"
+                aria-label="Play Playlist">
+                <app-icon name="play" [size]="18" />
                 Play Playlist
               </button>
 
@@ -75,25 +66,18 @@ interface PlaylistTrackRow {
                 type="button"
                 class="btn-action"
                 (click)="onShufflePlay()"
-                [disabled]="trackRows().length === 0">
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-                  <polyline points="16 3 21 3 21 8"></polyline>
-                  <line x1="4" y1="20" x2="21" y2="3"></line>
-                  <polyline points="21 16 21 21 16 21"></polyline>
-                  <line x1="15" y1="15" x2="21" y2="21"></line>
-                  <line x1="4" y1="4" x2="9" y2="9"></line>
-                </svg>
+                [disabled]="trackRows().length === 0"
+                aria-label="Shuffle Playlist">
+                <app-icon name="shuffle" [size]="16" />
                 Shuffle
               </button>
 
               <button
                 type="button"
                 class="btn-action"
-                (click)="showAddTracksModal.set(true)">
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
+                (click)="showAddTracksModal.set(true)"
+                aria-label="Add Tracks">
+                <app-icon name="plus" [size]="16" />
                 Add Tracks
               </button>
             </div>
@@ -140,7 +124,7 @@ interface PlaylistTrackRow {
                           (click)="onMoveUp(i)"
                           title="Move Up"
                           aria-label="Move track up">
-                          ▲
+                          <app-icon name="arrow-up" [size]="12" />
                         </button>
                         <button
                           type="button"
@@ -149,7 +133,7 @@ interface PlaylistTrackRow {
                           (click)="onMoveDown(i)"
                           title="Move Down"
                           aria-label="Move track down">
-                          ▼
+                          <app-icon name="arrow-down" [size]="12" />
                         </button>
                       </div>
                     </td>
@@ -157,7 +141,9 @@ interface PlaylistTrackRow {
                     <!-- Index -->
                     <td class="col-num">
                       @if (player.currentTrack()?.id === row.track.id) {
-                        <span class="playing-icon">▶</span>
+                        <span class="playing-icon">
+                          <app-icon name="play" [size]="12" />
+                        </span>
                       } @else {
                         {{ i + 1 }}
                       }
@@ -169,7 +155,9 @@ interface PlaylistTrackRow {
                         @if (row.track.artwork) {
                           <img [src]="row.track.artwork" [alt]="row.track.title" class="thumb-img" />
                         } @else {
-                          <div class="thumb-placeholder">♪</div>
+                          <div class="thumb-placeholder">
+                            <app-icon name="music" [size]="16" />
+                          </div>
                         }
                         <span class="track-title truncate" [title]="row.track.title">
                           {{ row.track.title }}
@@ -198,10 +186,7 @@ interface PlaylistTrackRow {
                         (click)="onRemoveEntry(row.entry.id)"
                         title="Remove from playlist"
                         aria-label="Remove from playlist">
-                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2">
-                          <line x1="18" y1="6" x2="6" y2="18"></line>
-                          <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
+                        <app-icon name="trash" [size]="14" />
                       </button>
                     </td>
                   </tr>

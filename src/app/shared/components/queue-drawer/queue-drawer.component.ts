@@ -3,11 +3,12 @@ import { CommonModule } from '@angular/common';
 import { PlayerService } from '../../../core/player/player.service';
 import { QueueEntry } from '../../../core/models';
 import { DurationPipe } from '../../pipes/duration.pipe';
+import { IconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-queue-drawer',
   standalone: true,
-  imports: [CommonModule, DurationPipe],
+  imports: [CommonModule, DurationPipe, IconComponent],
   template: `
     <aside
       class="queue-drawer"
@@ -39,10 +40,7 @@ import { DurationPipe } from '../../pipes/duration.pipe';
             (click)="close.emit()"
             title="Close queue (Esc)"
             aria-label="Close queue">
-            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            <app-icon name="x" [size]="18" />
           </button>
         </div>
       </div>
@@ -51,14 +49,7 @@ import { DurationPipe } from '../../pipes/duration.pipe';
       <div class="drawer-content">
         @if (player.queue().length === 0) {
           <div class="empty-queue">
-            <svg viewBox="0 0 24 24" width="40" height="40" stroke="currentColor" fill="none" stroke-width="1.5" class="empty-icon">
-              <line x1="8" y1="6" x2="21" y2="6"></line>
-              <line x1="8" y1="12" x2="21" y2="12"></line>
-              <line x1="8" y1="18" x2="21" y2="18"></line>
-              <line x1="3" y1="6" x2="3.01" y2="6"></line>
-              <line x1="3" y1="12" x2="3.01" y2="12"></line>
-              <line x1="3" y1="18" x2="3.01" y2="18"></line>
-            </svg>
+            <app-icon name="queue" [size]="40" class="empty-icon" />
             <p class="empty-text">Queue is empty</p>
             <span class="empty-subtext">Double click any song or album to start listening.</span>
           </div>
@@ -82,7 +73,7 @@ import { DurationPipe } from '../../pipes/duration.pipe';
                         <span class="bar bar-2"></span>
                         <span class="bar bar-3"></span>
                       } @else {
-                        <span class="pause-dot">❚❚</span>
+                        <app-icon name="pause" [size]="10" class="pause-icon" />
                       }
                     </div>
                   } @else {
@@ -94,7 +85,9 @@ import { DurationPipe } from '../../pipes/duration.pipe';
                 @if (entry.track.artwork) {
                   <img [src]="entry.track.artwork" [alt]="entry.track.title" class="thumb-img" />
                 } @else {
-                  <div class="thumb-placeholder" aria-hidden="true">♪</div>
+                  <div class="thumb-placeholder" aria-hidden="true">
+                    <app-icon name="music" [size]="16" />
+                  </div>
                 }
 
                 <!-- Track Info -->
@@ -119,10 +112,7 @@ import { DurationPipe } from '../../pipes/duration.pipe';
                   (click)="onRemove($event, entry.id)"
                   title="Remove from queue"
                   aria-label="Remove track from queue">
-                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
+                  <app-icon name="x" [size]="14" />
                 </button>
               </div>
             }
@@ -138,11 +128,15 @@ import { DurationPipe } from '../../pipes/duration.pipe';
       right: 0;
       bottom: var(--player-bar-height);
       width: var(--queue-drawer-width);
-      background: var(--bg-surface);
-      border-left: 1px solid var(--border-subtle);
+      background: var(--color-surface);
+      border-left: 1px solid var(--color-border-subtle);
       box-shadow: var(--shadow-lg);
       transform: translateX(100%);
-      transition: transform var(--transition-normal);
+      transition:
+        transform var(--transition-normal),
+        background-color var(--transition-normal),
+        border-color var(--transition-normal),
+        color var(--transition-normal);
       display: flex;
       flex-direction: column;
       z-index: 20;
@@ -160,7 +154,7 @@ import { DurationPipe } from '../../pipes/duration.pipe';
       justify-content: space-between;
       border-bottom: 1px solid var(--border-subtle);
       flex-shrink: 0;
-      background: var(--bg-elevated);
+      background: var(--color-surface-elevated);
     }
 
     .drawer-title-group h2 {
@@ -369,9 +363,11 @@ import { DurationPipe } from '../../pipes/duration.pipe';
       100% { height: 12px; }
     }
 
-    .pause-dot {
-      font-size: 9px;
-      color: var(--accent-primary);
+    .pause-icon {
+      color: var(--color-accent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
   `]
 })

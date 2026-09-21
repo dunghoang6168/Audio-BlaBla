@@ -5,6 +5,7 @@ import { LIBRARY_GATEWAY } from '../../../core/contracts';
 import { Album, orderAlbumTracks, Track } from '../../../core/models';
 import { PlayerService } from '../../../core/player/player.service';
 import { DurationPipe } from '../../../shared/pipes/duration.pipe';
+import { IconComponent } from '../../../shared/components/icon/icon.component';
 
 interface DiscGroup {
   discNumber: number;
@@ -14,14 +15,12 @@ interface DiscGroup {
 @Component({
   selector: 'app-album-detail',
   standalone: true,
-  imports: [CommonModule, RouterModule, DurationPipe],
+  imports: [CommonModule, RouterModule, DurationPipe, IconComponent],
   template: `
     <div class="album-detail-page">
       <nav class="breadcrumb">
         <a routerLink="/albums" class="back-link">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
+          <app-icon name="chevron-left" [size]="16" />
           Back to Albums
         </a>
       </nav>
@@ -45,10 +44,7 @@ interface DiscGroup {
               <img [src]="album()?.artwork" [alt]="album()?.title" class="hero-artwork-img" />
             } @else {
               <div class="hero-artwork-placeholder" aria-hidden="true">
-                <svg viewBox="0 0 24 24" width="64" height="64" stroke="currentColor" fill="none" stroke-width="1.5">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
+                <app-icon name="disc" [size]="64" />
               </div>
             }
           </div>
@@ -70,10 +66,9 @@ interface DiscGroup {
                 type="button"
                 class="btn-play"
                 (click)="onPlayAll()"
-                [disabled]="albumTracks().length === 0">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
+                [disabled]="albumTracks().length === 0"
+                aria-label="Play Album">
+                <app-icon name="play" [size]="18" />
                 Play Album
               </button>
 
@@ -81,14 +76,9 @@ interface DiscGroup {
                 type="button"
                 class="btn-shuffle"
                 (click)="onShufflePlay()"
-                [disabled]="albumTracks().length === 0">
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-                  <polyline points="16 3 21 3 21 8"></polyline>
-                  <line x1="4" y1="20" x2="21" y2="3"></line>
-                  <polyline points="21 16 21 21 16 21"></polyline>
-                  <line x1="15" y1="15" x2="21" y2="21"></line>
-                  <line x1="4" y1="4" x2="9" y2="9"></line>
-                </svg>
+                [disabled]="albumTracks().length === 0"
+                aria-label="Shuffle Album">
+                <app-icon name="shuffle" [size]="16" />
                 Shuffle
               </button>
             </div>
@@ -101,10 +91,7 @@ interface DiscGroup {
             <div class="disc-section">
               @if (discGroups().length > 1) {
                 <div class="disc-header">
-                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <circle cx="12" cy="12" r="3"></circle>
-                  </svg>
+                  <app-icon name="disc" [size]="16" />
                   <span>Disc {{ group.discNumber }}</span>
                 </div>
               }
@@ -129,7 +116,9 @@ interface DiscGroup {
                       tabindex="0">
                       <td class="col-num">
                         @if (player.currentTrack()?.id === track.id) {
-                          <span class="playing-icon">▶</span>
+                          <span class="playing-icon">
+                            <app-icon name="play" [size]="12" />
+                          </span>
                         } @else {
                           {{ track.trackNumber || i + 1 }}
                         }

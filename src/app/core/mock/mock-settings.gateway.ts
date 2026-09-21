@@ -10,7 +10,8 @@ export class MockSettingsGateway implements SettingsGateway {
     defaultVolume: 0.8,
     repeatMode: 'off',
     shuffle: false,
-    theme: 'dark',
+    themePreset: 'midnight',
+    accentColor: 'violet',
   };
 
   async getSettings(): Promise<Settings> {

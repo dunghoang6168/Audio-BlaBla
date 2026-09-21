@@ -5,11 +5,12 @@ import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY, PLAYLIST_GATEWAY } from '../../core/contracts';
 import { Playlist, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-playlists',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, IconComponent],
   template: `
     <div class="playlists-page">
       <header class="page-header">
@@ -18,22 +19,15 @@ import { PlayerService } from '../../core/player/player.service';
           <span class="count-badge">{{ playlists().length }} playlists</span>
         </div>
 
-        <button type="button" class="btn-create" (click)="showCreateModal.set(true)">
-          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"></line>
-            <line x1="5" y1="12" x2="19" y2="12"></line>
-          </svg>
+        <button type="button" class="btn-create" (click)="showCreateModal.set(true)" aria-label="New Playlist">
+          <app-icon name="plus" [size]="16" />
           New Playlist
         </button>
       </header>
 
       @if (errorMessage()) {
         <div class="error-state" role="alert">
-          <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" stroke-width="1.5">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="8" x2="12" y2="12"></line>
-            <line x1="12" y1="16" x2="12.01" y2="16"></line>
-          </svg>
+          <app-icon name="alert-triangle" [size]="48" />
           <p class="error-title">Failed to load playlists</p>
           <p class="error-desc">{{ errorMessage() }}</p>
           <button type="button" class="btn-retry" (click)="loadData()">Retry</button>
@@ -45,6 +39,7 @@ import { PlayerService } from '../../core/player/player.service';
         </div>
       } @else if (playlists().length === 0) {
         <div class="empty-state">
+          <app-icon name="list-music" [size]="48" class="empty-icon" />
           <p class="empty-title">No playlists yet</p>
           <p class="empty-desc">Create your first playlist to organize your favorite music.</p>
           <button type="button" class="btn-create" (click)="showCreateModal.set(true)">Create Playlist</button>
@@ -54,24 +49,16 @@ import { PlayerService } from '../../core/player/player.service';
           @for (playlist of playlists(); track playlist.id) {
             <div class="playlist-card" [routerLink]="['/playlists', playlist.id]" tabindex="0" role="button">
               <div class="playlist-icon-box">
-                <svg viewBox="0 0 24 24" width="36" height="36" stroke="currentColor" fill="none" stroke-width="1.8">
-                  <line x1="8" y1="6" x2="21" y2="6"></line>
-                  <line x1="8" y1="12" x2="21" y2="12"></line>
-                  <line x1="8" y1="18" x2="21" y2="18"></line>
-                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                </svg>
+                <app-icon name="list-music" [size]="36" />
 
                 <button
                   type="button"
                   class="quick-play-btn"
                   (click)="onPlayPlaylist($event, playlist)"
                   [disabled]="playlist.entries.length === 0"
-                  title="Play Playlist">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                    <polygon points="8 5 19 12 8 19"></polygon>
-                  </svg>
+                  title="Play Playlist"
+                  aria-label="Play Playlist">
+                  <app-icon name="play" [size]="18" />
                 </button>
               </div>
 
@@ -85,21 +72,17 @@ import { PlayerService } from '../../core/player/player.service';
                   type="button"
                   class="btn-icon"
                   (click)="onOpenRename($event, playlist)"
-                  title="Rename Playlist">
-                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                  </svg>
+                  title="Rename Playlist"
+                  aria-label="Rename Playlist">
+                  <app-icon name="edit" [size]="14" />
                 </button>
                 <button
                   type="button"
                   class="btn-icon delete"
                   (click)="onOpenDelete($event, playlist)"
-                  title="Delete Playlist">
-                  <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                  </svg>
+                  title="Delete Playlist"
+                  aria-label="Delete Playlist">
+                  <app-icon name="trash" [size]="14" />
                 </button>
               </div>
             </div>
@@ -156,7 +139,8 @@ import { PlayerService } from '../../core/player/player.service';
               Are you sure you want to delete <strong>{{ playlistToDelete()?.name }}</strong>?
             </p>
             <div class="safe-note">
-              ✓ <strong>Safe:</strong> This will delete the playlist. Your music library files will not be touched.
+              <app-icon name="check" [size]="16" class="safe-icon" />
+              <span><strong>Safe:</strong> This will delete the playlist. Your music library files will not be touched.</span>
             </div>
             <div class="modal-actions">
               <button type="button" class="btn-cancel" (click)="playlistToDelete.set(null)">Cancel</button>
@@ -222,7 +206,7 @@ import { PlayerService } from '../../core/player/player.service';
     .playlist-card:hover {
       background: var(--bg-surface-hover);
       transform: translateY(-3px);
-      border-color: rgba(139, 92, 246, 0.4);
+      border-color: var(--color-accent-glow);
     }
 
     .playlist-icon-box {

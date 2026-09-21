@@ -4,30 +4,27 @@ import { RouterModule } from '@angular/router';
 import { LIBRARY_GATEWAY, PLAYLIST_GATEWAY } from '../../core/contracts';
 import { Album, Playlist, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-home',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, IconComponent],
   template: `
     <div class="home-page">
       <!-- Welcome Hero -->
-      <section class="welcome-hero">
+      <!-- <section class="welcome-hero">
         <div class="hero-text">
           <h1>Welcome to Audio BlaBla</h1>
           <p class="subtitle">Your high-fidelity offline desktop music player. Browse by tags, artist discographies, or filesystem hierarchy.</p>
         </div>
-      </section>
+      </section> -->
 
       <!-- Library Statistics Counter Cards -->
       <section class="stats-row">
         <a routerLink="/songs" class="stat-card">
           <div class="stat-icon-box songs">
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2">
-              <path d="M9 18V5l12-2v13"></path>
-              <circle cx="6" cy="18" r="3"></circle>
-              <circle cx="18" cy="16" r="3"></circle>
-            </svg>
+            <app-icon name="music" [size]="22" />
           </div>
           <div class="stat-meta">
             <span class="stat-count">{{ tracksCount() }}</span>
@@ -37,10 +34,7 @@ import { PlayerService } from '../../core/player/player.service';
 
         <a routerLink="/albums" class="stat-card">
           <div class="stat-icon-box albums">
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2">
-              <circle cx="12" cy="12" r="10"></circle>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
+            <app-icon name="disc" [size]="22" />
           </div>
           <div class="stat-meta">
             <span class="stat-count">{{ albumsCount() }}</span>
@@ -50,10 +44,7 @@ import { PlayerService } from '../../core/player/player.service';
 
         <a routerLink="/artists" class="stat-card">
           <div class="stat-icon-box artists">
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2">
-              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
+            <app-icon name="user" [size]="22" />
           </div>
           <div class="stat-meta">
             <span class="stat-count">{{ artistsCount() }}</span>
@@ -63,9 +54,7 @@ import { PlayerService } from '../../core/player/player.service';
 
         <a routerLink="/folders" class="stat-card">
           <div class="stat-icon-box folders">
-            <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" fill="none" stroke-width="2">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-            </svg>
+            <app-icon name="folder" [size]="22" />
           </div>
           <div class="stat-meta">
             <span class="stat-count">{{ foldersCount() }}</span>
@@ -88,17 +77,18 @@ import { PlayerService } from '../../core/player/player.service';
                 @if (album.artwork) {
                   <img [src]="album.artwork" [alt]="album.title" class="cover-img" />
                 } @else {
-                  <div class="cover-placeholder" aria-hidden="true">♪</div>
+                  <div class="cover-placeholder" aria-hidden="true">
+                    <app-icon name="disc" [size]="36" />
+                  </div>
                 }
 
                 <button
                   type="button"
                   class="quick-play-btn"
                   (click)="onPlayAlbum($event, album)"
-                  title="Play Album">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                    <polygon points="8 5 19 12 8 19"></polygon>
-                  </svg>
+                  title="Play Album"
+                  aria-label="Play Album">
+                  <app-icon name="play" [size]="18" />
                 </button>
               </div>
               <h3 class="album-title truncate" [title]="album.title">{{ album.title }}</h3>
@@ -118,7 +108,7 @@ import { PlayerService } from '../../core/player/player.service';
         <div class="playlists-row">
           @for (pl of playlists(); track pl.id) {
             <a [routerLink]="['/playlists', pl.id]" class="playlist-pill">
-              <span class="pill-icon">♫</span>
+              <app-icon name="list-music" [size]="16" class="pill-icon" />
               <span class="pill-title truncate">{{ pl.name }}</span>
               <span class="pill-count">({{ pl.entries.length }})</span>
             </a>
@@ -138,8 +128,8 @@ import { PlayerService } from '../../core/player/player.service';
     }
 
     .welcome-hero {
-      background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(30, 27, 75, 0.4));
-      border: 1px solid var(--border-subtle);
+      background: linear-gradient(135deg, var(--color-accent-muted), var(--color-surface-elevated));
+      border: 1px solid var(--color-border-subtle);
       border-radius: var(--radius-xl);
       padding: var(--space-8);
       box-shadow: var(--shadow-md);
@@ -181,7 +171,7 @@ import { PlayerService } from '../../core/player/player.service';
     .stat-card:hover {
       background: var(--bg-surface-hover);
       transform: translateY(-2px);
-      border-color: rgba(139, 92, 246, 0.3);
+      border-color: var(--color-accent-glow);
     }
 
     .stat-icon-box {

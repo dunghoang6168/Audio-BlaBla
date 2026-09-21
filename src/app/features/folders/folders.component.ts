@@ -6,11 +6,12 @@ import { LIBRARY_GATEWAY } from '../../core/contracts';
 import { FolderNode, MusicFolder, ScanProgress, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 @Component({
   selector: 'app-folders',
   standalone: true,
-  imports: [CommonModule, FormsModule, DurationPipe],
+  imports: [CommonModule, FormsModule, DurationPipe, IconComponent],
   template: `
     <div class="folders-page">
       <!-- Top Action Bar -->
@@ -26,10 +27,9 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
             class="btn-action primary"
             (click)="onStartScan()"
             [disabled]="scanProgress().isScanning"
-            title="Scan library folders">
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" class="scan-icon" [class.spinning]="scanProgress().isScanning">
-              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
-            </svg>
+            title="Scan library folders"
+            aria-label="Scan library folders">
+            <app-icon name="refresh-cw" [size]="16" class="scan-icon" [class.spinning]="scanProgress().isScanning" />
             {{ scanProgress().isScanning ? 'Scanning...' : 'Scan Library' }}
           </button>
 
@@ -37,11 +37,9 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
             type="button"
             class="btn-action secondary"
             (click)="onAddFolder()"
-            title="Add music folder">
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
+            title="Add music folder"
+            aria-label="Add music folder">
+            <app-icon name="plus" [size]="16" />
             Add Folder
           </button>
         </div>
@@ -69,7 +67,8 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
 
             @if (scanProgress().error) {
               <div class="scan-error-msg">
-                ⚠️ {{ scanProgress().error }}
+                <app-icon name="alert-triangle" [size]="14" class="warning-icon" />
+                <span>{{ scanProgress().error }}</span>
               </div>
             }
           </div>
@@ -93,9 +92,7 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
               class="root-tab"
               [class.active]="selectedRootId() === root.id"
               (click)="onSelectRoot(root)">
-              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-              </svg>
+              <app-icon name="folder" [size]="14" />
               <span class="root-name truncate">{{ root.name }}</span>
             </button>
           }
@@ -130,11 +127,7 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
       <div class="folder-content-view">
         @if (errorMessage()) {
           <div class="error-state" role="alert">
-            <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" stroke-width="1.5">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
+            <app-icon name="alert-triangle" [size]="48" />
             <p class="error-title">Folder Error</p>
             <p class="error-desc">{{ errorMessage() }}</p>
             <button type="button" class="btn-retry" (click)="loadRoots()">Retry</button>
@@ -146,6 +139,7 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
           </div>
         } @else if (!currentNode()) {
           <div class="empty-state">
+            <app-icon name="folder" [size]="48" class="empty-icon" />
             <p>Select a music root above to browse folders.</p>
           </div>
         } @else {
@@ -155,9 +149,7 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
               @for (folder of subfolders(); track folder.id) {
                 <div class="folder-card" (click)="onEnterFolder(folder)" tabindex="0" role="button">
                   <div class="folder-icon-box">
-                    <svg viewBox="0 0 24 24" width="28" height="28" stroke="currentColor" fill="none" stroke-width="1.8">
-                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                    </svg>
+                    <app-icon name="folder" [size]="28" />
                   </div>
                   <span class="folder-name truncate" [title]="folder.name">{{ folder.name }}</span>
                 </div>
@@ -170,10 +162,8 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
             <div class="files-card">
               <div class="files-header">
                 <h3>Files ({{ filesInCurrentFolder().length }})</h3>
-                <button type="button" class="btn-play-folder" (click)="onPlayFolderFiles()">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                  </svg>
+                <button type="button" class="btn-play-folder" (click)="onPlayFolderFiles()" aria-label="Play All Files">
+                  <app-icon name="play" [size]="14" />
                   Play All Files
                 </button>
               </div>
@@ -196,11 +186,7 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
                       <td class="col-num">{{ i + 1 }}</td>
                       <td class="col-title">
                         <div class="file-name-cell">
-                          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" class="music-icon">
-                            <path d="M9 18V5l12-2v13"></path>
-                            <circle cx="6" cy="18" r="3"></circle>
-                            <circle cx="18" cy="16" r="3"></circle>
-                          </svg>
+                          <app-icon name="file-audio" [size]="16" class="music-icon" />
                           <span class="file-name truncate">{{ file.name }}</span>
                         </div>
                       </td>
@@ -231,8 +217,11 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
               Are you sure you want to remove <strong>{{ selectedRoot()?.name }}</strong> from your library?
             </p>
             <div class="warning-box">
-              ⚠️ <strong>Safe Operation:</strong> This only removes the folder index from Audio BlaBla.
-              Your actual audio files on disk will <em>never</em> be deleted.
+              <app-icon name="alert-triangle" [size]="16" class="warning-icon" />
+              <span>
+                <strong>Safe Operation:</strong> This only removes the folder index from Audio BlaBla.
+                Your actual audio files on disk will <em>never</em> be deleted.
+              </span>
             </div>
 
             <div class="modal-actions">
@@ -318,8 +307,8 @@ import { DurationPipe } from '../../shared/pipes/duration.pipe';
 
     /* Scan Progress Banner */
     .scan-banner {
-      background: rgba(139, 92, 246, 0.1);
-      border: 1px solid var(--accent-primary);
+      background: var(--color-accent-muted);
+      border: 1px solid var(--color-accent);
       border-radius: var(--radius-lg);
       padding: var(--space-3) var(--space-4);
       margin-bottom: var(--space-4);

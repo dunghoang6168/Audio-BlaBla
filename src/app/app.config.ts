@@ -1,4 +1,4 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import { ApplicationConfig, inject, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
 import { LIBRARY_GATEWAY, PLAYBACK_ENGINE, PLAYLIST_GATEWAY, SETTINGS_GATEWAY } from './core/contracts';
@@ -8,6 +8,7 @@ import { ElectronPlaylistGateway } from './core/desktop/electron-playlist.gatewa
 import { ElectronSettingsGateway } from './core/desktop/electron-settings.gateway';
 import { HtmlAudioPlaybackEngine } from './core/desktop/html-audio-playback.engine';
 import { getDesktopApi } from './core/desktop/desktop-api';
+import { ThemeService } from './core/theme/theme.service';
 
 const isDesktop = () => Boolean(getDesktopApi());
 
@@ -20,5 +21,6 @@ export const appConfig: ApplicationConfig = {
     { provide: PLAYLIST_GATEWAY, useFactory: () => isDesktop() ? new ElectronPlaylistGateway() : new MockPlaylistGateway() },
     { provide: SETTINGS_GATEWAY, useFactory: () => isDesktop() ? new ElectronSettingsGateway() : new MockSettingsGateway() },
     { provide: PLAYBACK_ENGINE, useFactory: () => isDesktop() ? new HtmlAudioPlaybackEngine() : new MockPlaybackEngine() },
+    provideAppInitializer(() => inject(ThemeService).restore()),
   ],
 };

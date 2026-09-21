@@ -54,6 +54,9 @@ import { QueueDrawerComponent } from './shared/components/queue-drawer/queue-dra
       flex-direction: column;
       overflow: hidden;
       position: relative;
+      background: var(--color-canvas);
+      color: var(--color-text);
+      transition: background-color var(--transition-normal), color var(--transition-normal);
     }
 
     .workspace {
@@ -67,8 +70,9 @@ import { QueueDrawerComponent } from './shared/components/queue-drawer/queue-dra
       flex: 1;
       height: 100%;
       overflow: hidden;
-      background: var(--bg-app);
+      background: var(--color-canvas);
       position: relative;
+      transition: background-color var(--transition-normal), color var(--transition-normal);
     }
   `]
 })

@@ -5,6 +5,7 @@ import { LIBRARY_GATEWAY } from '../../core/contracts';
 import { Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
+import { IconComponent } from '../../shared/components/icon/icon.component';
 
 type SortColumn = 'title' | 'artist' | 'album' | 'duration' | 'codec' | 'sampleRate';
 type SortDirection = 'asc' | 'desc';
@@ -12,7 +13,7 @@ type SortDirection = 'asc' | 'desc';
 @Component({
   selector: 'app-songs',
   standalone: true,
-  imports: [CommonModule, FormsModule, DurationPipe],
+  imports: [CommonModule, FormsModule, DurationPipe, IconComponent],
   template: `
     <div class="songs-container">
       <!-- Header & Search Toolbar -->
@@ -29,10 +30,9 @@ type SortDirection = 'asc' | 'desc';
             class="action-btn primary"
             (click)="onPlayAll()"
             [disabled]="filteredTracks().length === 0"
-            title="Play all tracks in current view">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-              <polygon points="5 3 19 12 5 21 5 3"></polygon>
-            </svg>
+            title="Play all tracks in current view"
+            aria-label="Play all tracks">
+            <app-icon name="play" [size]="16" />
             Play All
           </button>
 
@@ -41,23 +41,15 @@ type SortDirection = 'asc' | 'desc';
             class="action-btn secondary"
             (click)="onShuffleAll()"
             [disabled]="filteredTracks().length === 0"
-            title="Shuffle all tracks in current view">
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="16 3 21 3 21 8"></polyline>
-              <line x1="4" y1="20" x2="21" y2="3"></line>
-              <polyline points="21 16 21 21 16 21"></polyline>
-              <line x1="15" y1="15" x2="21" y2="21"></line>
-              <line x1="4" y1="4" x2="9" y2="9"></line>
-            </svg>
+            title="Shuffle all tracks in current view"
+            aria-label="Shuffle all tracks">
+            <app-icon name="shuffle" [size]="16" />
             Shuffle
           </button>
 
           <!-- Search Box -->
           <div class="search-box">
-            <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
+            <app-icon name="search" [size]="16" class="search-icon" />
             <input
               type="text"
               [ngModel]="searchQuery()"
@@ -65,8 +57,8 @@ type SortDirection = 'asc' | 'desc';
               placeholder="Search by title, artist, album..."
               aria-label="Search tracks" />
             @if (searchQuery()) {
-              <button type="button" class="clear-search-btn" (click)="searchQuery.set('')" title="Clear search">
-                &times;
+              <button type="button" class="clear-search-btn" (click)="searchQuery.set('')" title="Clear search" aria-label="Clear search">
+                <app-icon name="x" [size]="14" />
               </button>
             }
           </div>
@@ -77,7 +69,9 @@ type SortDirection = 'asc' | 'desc';
       @if (noticeMessage()) {
         <div class="notice-toast" role="alert">
           <span>{{ noticeMessage() }}</span>
-          <button type="button" (click)="noticeMessage.set(null)" aria-label="Dismiss notice">&times;</button>
+          <button type="button" (click)="noticeMessage.set(null)" aria-label="Dismiss notice">
+            <app-icon name="x" [size]="14" />
+          </button>
         </div>
       }
 
@@ -85,11 +79,7 @@ type SortDirection = 'asc' | 'desc';
       <div class="table-scroll-container">
         @if (errorMessage()) {
           <div class="error-state" role="alert">
-            <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" stroke-width="1.5">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
+            <app-icon name="alert-triangle" [size]="48" />
             <p class="error-title">Failed to load songs</p>
             <p class="error-desc">{{ errorMessage() }}</p>
             <button type="button" class="btn-retry" (click)="loadSongs()">Retry</button>
@@ -101,11 +91,7 @@ type SortDirection = 'asc' | 'desc';
           </div>
         } @else if (filteredTracks().length === 0) {
           <div class="empty-state">
-            <svg viewBox="0 0 24 24" width="48" height="48" stroke="currentColor" fill="none" stroke-width="1.5">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
+            <app-icon name="music" [size]="48" />
             <p class="empty-title">No songs found</p>
             <p class="empty-desc">
               @if (searchQuery()) {
@@ -123,37 +109,49 @@ type SortDirection = 'asc' | 'desc';
                 <th class="col-title sortable" (click)="toggleSort('title')" [attr.aria-sort]="getAriaSort('title')">
                   <span>Title</span>
                   @if (sortColumn() === 'title') {
-                    <span class="sort-indicator">{{ sortDirection() === 'asc' ? '↑' : '↓' }}</span>
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
                   }
                 </th>
                 <th class="col-artist sortable" (click)="toggleSort('artist')" [attr.aria-sort]="getAriaSort('artist')">
                   <span>Artist</span>
                   @if (sortColumn() === 'artist') {
-                    <span class="sort-indicator">{{ sortDirection() === 'asc' ? '↑' : '↓' }}</span>
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
                   }
                 </th>
                 <th class="col-album sortable" (click)="toggleSort('album')" [attr.aria-sort]="getAriaSort('album')">
                   <span>Album</span>
                   @if (sortColumn() === 'album') {
-                    <span class="sort-indicator">{{ sortDirection() === 'asc' ? '↑' : '↓' }}</span>
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
                   }
                 </th>
                 <th class="col-duration sortable" (click)="toggleSort('duration')" [attr.aria-sort]="getAriaSort('duration')">
                   <span>Time</span>
                   @if (sortColumn() === 'duration') {
-                    <span class="sort-indicator">{{ sortDirection() === 'asc' ? '↑' : '↓' }}</span>
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
                   }
                 </th>
                 <th class="col-codec sortable" (click)="toggleSort('codec')" [attr.aria-sort]="getAriaSort('codec')">
                   <span>Codec</span>
                   @if (sortColumn() === 'codec') {
-                    <span class="sort-indicator">{{ sortDirection() === 'asc' ? '↑' : '↓' }}</span>
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
                   }
                 </th>
                 <th class="col-quality sortable" (click)="toggleSort('sampleRate')" [attr.aria-sort]="getAriaSort('sampleRate')">
                   <span>Sample Rate</span>
                   @if (sortColumn() === 'sampleRate') {
-                    <span class="sort-indicator">{{ sortDirection() === 'asc' ? '↑' : '↓' }}</span>
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
                   }
                 </th>
                 <th class="col-actions"><span class="sr-only">Actions</span></th>
@@ -180,7 +178,7 @@ type SortDirection = 'asc' | 'desc';
                           <span class="bar bar-2"></span>
                           <span class="bar bar-3"></span>
                         } @else {
-                          <span class="pause-dot">❚❚</span>
+                          <app-icon name="pause" [size]="10" class="pause-icon" />
                         }
                       </div>
                     } @else {
@@ -194,7 +192,9 @@ type SortDirection = 'asc' | 'desc';
                       @if (track.artwork) {
                         <img [src]="track.artwork" [alt]="track.title" class="thumb-img" />
                       } @else {
-                        <div class="thumb-placeholder" aria-hidden="true">♪</div>
+                        <div class="thumb-placeholder" aria-hidden="true">
+                          <app-icon name="music" [size]="16" />
+                        </div>
                       }
                       <div class="title-text-group">
                         <span class="track-name truncate" [title]="track.title">
@@ -248,21 +248,17 @@ type SortDirection = 'asc' | 'desc';
                         type="button"
                         class="row-action-btn"
                         (click)="onPlayNext(track)"
-                        title="Play Next">
-                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2">
-                          <polygon points="5 4 15 12 5 20 5 4"></polygon>
-                          <line x1="19" y1="5" x2="19" y2="19"></line>
-                        </svg>
+                        title="Play Next"
+                        aria-label="Play Next">
+                        <app-icon name="skip-forward" [size]="14" />
                       </button>
                       <button
                         type="button"
                         class="row-action-btn"
                         (click)="onAddToQueue(track)"
-                        title="Add to Queue">
-                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2">
-                          <line x1="12" y1="5" x2="12" y2="19"></line>
-                          <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
+                        title="Add to Queue"
+                        aria-label="Add to Queue">
+                        <app-icon name="plus" [size]="14" />
                       </button>
                     </div>
                   </td>
@@ -537,9 +533,9 @@ type SortDirection = 'asc' | 'desc';
     }
 
     .badge-codec.hi-res {
-      background: rgba(139, 92, 246, 0.18);
-      color: var(--accent-primary);
-      border: 1px solid rgba(139, 92, 246, 0.3);
+      background: var(--color-accent-muted);
+      color: var(--color-text-accent);
+      border: 1px solid var(--color-accent-glow);
     }
 
     .quality-spec {
@@ -601,9 +597,11 @@ type SortDirection = 'asc' | 'desc';
       100% { height: 14px; }
     }
 
-    .pause-dot {
-      font-size: 10px;
-      color: var(--accent-primary);
+    .pause-icon {
+      color: var(--color-accent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .loading-state, .empty-state, .error-state {
@@ -616,8 +614,8 @@ type SortDirection = 'asc' | 'desc';
       gap: var(--space-3);
     }
 
-    .error-state svg {
-      stroke: var(--status-error);
+    .error-state {
+      color: var(--status-error);
     }
 
     .error-title {
@@ -665,6 +663,18 @@ type SortDirection = 'asc' | 'desc';
       font-weight: 700;
       font-size: var(--font-size-md);
       color: var(--text-primary);
+    }
+
+    @media (max-width: 900px) {
+      .col-codec, .col-quality {
+        display: none;
+      }
+      .col-album {
+        max-width: 140px;
+      }
+      .songs-container {
+        padding: var(--space-4);
+      }
     }
   `]
 })
