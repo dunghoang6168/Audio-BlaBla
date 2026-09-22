@@ -1,16 +1,19 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
-import { PlaybackEngine } from '../contracts/playback-engine.contract';
+import { AudioAnalysisEngine, PlaybackEngine } from '../contracts';
 import { PlaybackStateEvent, PlaybackTimeEvent, PlaybackVolumeEvent, Track } from '../models';
 
 @Injectable({ providedIn: 'root' })
-export class MockPlaybackEngine implements PlaybackEngine {
+export class MockPlaybackEngine implements PlaybackEngine, AudioAnalysisEngine {
   private currentTrack: Track | null = null;
   private currentTime = 0;
   private duration = 0;
   private volume = 0.8;
   private isMuted = false;
   private timer: ReturnType<typeof setInterval> | null = null;
+  private analysisFrame = 0;
+
+  readonly isAnalysisSupported = true;
 
   private readonly stateChangeSubject = new BehaviorSubject<PlaybackStateEvent>({
     state: 'idle',
@@ -122,6 +125,22 @@ export class MockPlaybackEngine implements PlaybackEngine {
       volume: this.volume,
       isMuted: this.isMuted,
     });
+  }
+
+  async prepareFrequencyAnalysis(): Promise<number> {
+    return 1024;
+  }
+
+  readFrequencyData(target: Uint8Array<ArrayBuffer>): boolean {
+    if (!this.currentTrack || target.length === 0) return false;
+    const time = this.currentTime * 1.7 + this.analysisFrame++ * 0.08;
+    for (let index = 0; index < target.length; index++) {
+      const position = index / target.length;
+      const envelope = Math.exp(-position * 2.8);
+      const pulse = 0.52 + 0.28 * Math.sin(time + index * 0.17) + 0.2 * Math.sin(time * 0.47 + index * 0.043);
+      target[index] = Math.round(255 * envelope * Math.max(0.08, pulse));
+    }
+    return true;
   }
 
   dispose(): void {

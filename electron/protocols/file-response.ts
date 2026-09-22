@@ -7,7 +7,7 @@ interface ByteRange {
   end: number;
 }
 
-export async function createFileResponse(filePath: string, request: Request, mime: string | null): Promise<Response> {
+export async function createFileResponse(filePath: string, request: Request, mime: string | null, allowedOrigin?: string): Promise<Response> {
   let fileSize: number;
   try {
     const fileStat = await stat(filePath);
@@ -21,6 +21,10 @@ export async function createFileResponse(filePath: string, request: Request, mim
     'accept-ranges': 'bytes',
     'content-type': mime || 'application/octet-stream',
   });
+  if (allowedOrigin) {
+    headers.set('access-control-allow-origin', allowedOrigin);
+    headers.set('vary', 'Origin');
+  }
   const rangeHeader = request.headers.get('range');
   const range = rangeHeader ? parseByteRange(rangeHeader, fileSize) : null;
 

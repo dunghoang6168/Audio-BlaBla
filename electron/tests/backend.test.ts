@@ -31,9 +31,11 @@ test('file responses support full content, byte ranges, HEAD and missing files',
   try {
     await writeFile(filePath, content);
 
-    const full = await createFileResponse(filePath, new Request('music://track/test'), 'audio/test');
+    const full = await createFileResponse(filePath, new Request('music://track/test'), 'audio/test', 'app://audio-blabla');
     assert.equal(full.status, 200);
     assert.equal(full.headers.get('accept-ranges'), 'bytes');
+    assert.equal(full.headers.get('access-control-allow-origin'), 'app://audio-blabla');
+    assert.equal(full.headers.get('vary'), 'Origin');
     assert.equal(full.headers.get('content-length'), '256');
     assert.deepEqual(Buffer.from(await full.arrayBuffer()), content);
 

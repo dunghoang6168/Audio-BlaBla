@@ -5,11 +5,12 @@ import { PlayerService } from '../../core/player/player.service';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { QualityLabelPipe } from '../../shared/pipes/quality-label.pipe';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { SpectrumVisualizerComponent } from '../../shared/components/spectrum-visualizer/spectrum-visualizer.component';
 
 @Component({
   selector: 'app-now-playing',
   standalone: true,
-  imports: [CommonModule, RouterModule, DurationPipe, QualityLabelPipe, IconComponent],
+  imports: [CommonModule, RouterModule, DurationPipe, QualityLabelPipe, IconComponent, SpectrumVisualizerComponent],
   template: `
     <div class="now-playing-page">
       @if (player.currentTrack(); as track) {
@@ -54,6 +55,8 @@ import { IconComponent } from '../../shared/components/icon/icon.component';
                 <span class="track-genre">{{ track.genre }}</span>
               }
             </div>
+
+            <app-spectrum-visualizer />
 
             <!-- Embedded Timeline & Controls -->
             <div class="inline-controls">

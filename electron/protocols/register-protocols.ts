@@ -40,7 +40,7 @@ export function installProtocolHandlers(database: DatabaseService, rendererRoot:
     const track = database.resolveTrack(id); if (!track) return response(404, 'Track not found');
     let canonical: string; try { canonical = await realpath(track.path); } catch { return response(404, 'Audio file not found'); }
     if (!database.listFolders().some((folder) => isPathInside(canonical, folder.path))) return response(403, 'Track is outside registered music folders');
-    return createFileResponse(canonical, request, track.mime);
+    return createFileResponse(canonical, request, track.mime, initiatorOrigin);
   });
 }
 function trustedInitiator(origin: string | undefined, development: boolean): boolean { return origin === 'app://audio-blabla' || (development && origin === 'http://localhost:4200'); }

@@ -16,7 +16,8 @@ Phase 1 UI/UX, Phase 2 desktop integration và Phase 3 UI foundation đã hoàn 
 - Timeline hỗ trợ click, pointer drag và bàn phím; protocol audio hỗ trợ byte-range để seek file lớn.
 - Queue album được chuẩn hóa theo disc number và track number, không phụ thuộc thứ tự metadata trả về.
 - Phase 3 bổ sung semantic design tokens, 8 theme preset (4 dark, 4 light), 6 accent color và bộ icon SVG tập trung qua `IconComponent`.
-- 59 Angular tests và 5 backend integration tests đã thành công tại thời điểm đóng Phase 3.
+- Phase 3.2 bổ sung real-time spectrum visualizer trên Now Playing, lấy dữ liệu FFT từ chính `HTMLAudioElement` qua Web Audio API.
+- 65 Angular tests và 5 backend integration tests đã thành công tại thời điểm hoàn thành Phase 3.2.
 
 Nghiệm thu thủ công cơ bản trên Windows đã hoàn thành cho folder picker, scan library, playback, seek và chuyển bài. Chưa có installer, code signing hoặc bản phát hành Windows. Kiểm thử mở rộng với library lớn, nhiều codec/container và các trường hợp filesystem bất thường tiếp tục được thực hiện khi cần.
 
@@ -101,7 +102,7 @@ src/app/
     player/          # PlayerService và queue state
     theme/           # ThemeService và theme persistence
   features/          # Home, Songs, Albums, Artists, Folders, Playlists...
-  shared/            # Sidebar, player bar, queue drawer, icon và pipes
+  shared/            # Sidebar, player bar, queue drawer, icon, spectrum visualizer và pipes
 
 electron/
   main.ts            # App lifecycle và BrowserWindow
