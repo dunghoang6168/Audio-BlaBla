@@ -6,7 +6,7 @@ V1 quản lý thư mục nhạc trên máy, đọc metadata, duyệt thư viện
 
 ## Trạng thái hiện tại
 
-Phase 1 UI/UX và Phase 2 desktop integration đã hoàn thành và được nghiệm thu thủ công ở mức chức năng V1:
+Phase 1 UI/UX, Phase 2 desktop integration và Phase 3 UI foundation đã hoàn thành. Các chức năng V1 đã được nghiệm thu thủ công trên Windows:
 
 - Browser mode dùng mock gateways để phát triển UI độc lập.
 - Electron mode dùng preload API, IPC handlers, filesystem scanner, `music-metadata`, SQLite và artwork cache.
@@ -15,9 +15,12 @@ Phase 1 UI/UX và Phase 2 desktop integration đã hoàn thành và được ngh
 - Scanner đọc recursive MP3, FLAC, WAV, M4A/AAC, OGG và Opus; file lỗi không làm dừng toàn bộ scan.
 - Timeline hỗ trợ click, pointer drag và bàn phím; protocol audio hỗ trợ byte-range để seek file lớn.
 - Queue album được chuẩn hóa theo disc number và track number, không phụ thuộc thứ tự metadata trả về.
-- 51 Angular tests và 4 backend integration tests đã thành công tại thời điểm tạo checkpoint Phase 2.
+- Phase 3 bổ sung semantic design tokens, 8 theme preset (4 dark, 4 light), 6 accent color và bộ icon SVG tập trung qua `IconComponent`.
+- 59 Angular tests và 5 backend integration tests đã thành công tại thời điểm đóng Phase 3.
 
 Nghiệm thu thủ công cơ bản trên Windows đã hoàn thành cho folder picker, scan library, playback, seek và chuyển bài. Chưa có installer, code signing hoặc bản phát hành Windows. Kiểm thử mở rộng với library lớn, nhiều codec/container và các trường hợp filesystem bất thường tiếp tục được thực hiện khi cần.
+
+Giao diện hiện tại là nền tảng ổn định để sử dụng và tiếp tục tinh chỉnh. Phase 3.1 tập trung vào visual refinement dựa trên các ứng dụng desktop music player tham khảo; phase này không thay đổi playback, IPC, database hoặc scanner.
 
 ## Chức năng V1
 
@@ -47,6 +50,8 @@ Trường không đọc được giữ `null` và không hiển thị giá trị
 ## Stack
 
 - Angular 21, standalone components, Angular Router, Signals, RxJS và SCSS.
+- Theme state dùng Angular Signals, lưu qua settings gateway và áp dụng bằng semantic CSS custom properties.
+- `IconComponent` cung cấp whitelist icon thống nhất để feature components không nhúng SVG riêng lẻ.
 - TypeScript 5.9 ở frontend, preload và Electron Main Process.
 - Electron 44.4.x với `nodeIntegration: false`, `contextIsolation: true` và `sandbox: true`.
 - Node APIs trong Main Process; renderer không truy cập trực tiếp filesystem hoặc raw IPC.
@@ -94,8 +99,9 @@ src/app/
     mock/            # Browser mock adapters, fixtures và scenarios
     models/          # Domain models
     player/          # PlayerService và queue state
+    theme/           # ThemeService và theme persistence
   features/          # Home, Songs, Albums, Artists, Folders, Playlists...
-  shared/            # Sidebar, player bar, queue drawer, pipes
+  shared/            # Sidebar, player bar, queue drawer, icon và pipes
 
 electron/
   main.ts            # App lifecycle và BrowserWindow
@@ -181,6 +187,7 @@ Dự án chưa có Android, account, cloud sync, remote backend hoặc lyrics on
 ## Tài liệu liên quan
 
 - [Desktop integration contracts](docs/PHASE1_INTEGRATION_CONTRACTS.md)
+- [Phase 3.1 visual refinement](docs/PHASE3_1_VISUAL_REFINEMENT.md)
 - [Gateway interfaces](src/app/core/contracts/)
 - [Desktop API](src/app/core/desktop/desktop-api.ts)
 - [Scripts và dependencies](package.json)
