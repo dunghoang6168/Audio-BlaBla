@@ -9,6 +9,8 @@ import { DatabaseService, StoredTrack } from './database.service.js';
 import { log } from '../utils/logger.js';
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.m4a', '.aac', '.ogg', '.opus']);
+const COVER_NAMES = ['cover', 'folder', 'front'];
+const COVER_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp'];
 
 export class ScannerService {
   private scanning = false;
@@ -33,10 +35,11 @@ export class ScannerService {
         try {
           const root = await canonicalPath(folder.path);
           const files: string[] = [];
+          const covers = new Map<string, string[]>();
           const directories: Array<{ path: string; parentPath: string | null; name: string }> = [{ path: root, parentPath: null, name: folder.name }];
-          await this.walk(root, root, files, directories, () => { scannedFiles++; emit(root); }, () => { warnings++; folderWarnings++; });
+          await this.walk(root, root, files, covers, directories, () => { scannedFiles++; emit(root); }, () => { warnings++; folderWarnings++; });
           audioFiles += files.length;
-          const results = await this.readMetadata(files, folder.id, scanId, (filePath, warning) => {
+          const results = await this.readMetadata(files, covers, folder.id, scanId, (filePath, warning) => {
             if (warning) { warnings++; folderWarnings++; log('warn', 'metadata', warning); }
             emit(filePath, warning);
           });
@@ -56,7 +59,7 @@ export class ScannerService {
     }
   }
 
-  private async walk(root: string, directory: string, files: string[], directories: Array<{ path: string; parentPath: string | null; name: string }>, onEntry: () => void, onWarning: () => void): Promise<void> {
+  private async walk(root: string, directory: string, files: string[], covers: Map<string, string[]>, directories: Array<{ path: string; parentPath: string | null; name: string }>, onEntry: () => void, onWarning: () => void): Promise<void> {
     let handle;
     try { handle = await opendir(directory); } catch (error) { if (directory === root) throw error; onWarning(); return; }
     for await (const entry of handle) {
@@ -64,13 +67,46 @@ export class ScannerService {
       if (entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) {
         directories.push({ path: entryPath, parentPath: directory, name: entry.name });
-        await this.walk(root, entryPath, files, directories, onEntry, onWarning);
-      } else if (entry.isFile() && AUDIO_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) files.push(entryPath);
+        await this.walk(root, entryPath, files, covers, directories, onEntry, onWarning);
+      } else if (entry.isFile()) {
+        const extension = path.extname(entry.name).toLowerCase();
+        if (AUDIO_EXTENSIONS.has(extension)) files.push(entryPath);
+        else if (COVER_EXTENSIONS.includes(extension) && COVER_NAMES.includes(entry.name.slice(0, -extension.length).toLowerCase())) {
+          const candidates = covers.get(directory) ?? [];
+          candidates.push(entryPath);
+          covers.set(directory, candidates);
+        }
+      }
     }
   }
 
-  private async readMetadata(files: string[], folderId: string, scanId: string, report: (path: string, warning: string | null) => void): Promise<StoredTrack[]> {
+  private async readMetadata(files: string[], covers: Map<string, string[]>, folderId: string, scanId: string, report: (path: string, warning: string | null) => void): Promise<StoredTrack[]> {
     const results: StoredTrack[] = []; let cursor = 0;
+    const coverHashes = new Map<string, Promise<string | null>>();
+    const folderCover = (directory: string): Promise<string | null> => {
+      let pending = coverHashes.get(directory);
+      if (!pending) {
+        const candidates = (covers.get(directory) ?? []).sort((left, right) => {
+          const rank = (filePath: string) => {
+            const name = path.basename(filePath);
+            const extension = path.extname(name).toLowerCase();
+            return COVER_NAMES.indexOf(name.slice(0, -extension.length).toLowerCase()) * COVER_EXTENSIONS.length + COVER_EXTENSIONS.indexOf(extension);
+          };
+          return rank(left) - rank(right) || left.localeCompare(right);
+        });
+        pending = (async () => {
+          for (const candidate of candidates) {
+            try {
+              const hash = await this.artwork.saveFolderCover(candidate);
+              if (hash) return hash;
+            } catch { /* An unreadable cover must not prevent audio import. */ }
+          }
+          return null;
+        })();
+        coverHashes.set(directory, pending);
+      }
+      return pending;
+    };
     const worker = async () => {
       while (cursor < files.length) {
         const filePath = files[cursor++];
@@ -78,10 +114,20 @@ export class ScannerService {
           const fileStat = await stat(filePath);
           const existing = this.database.getStoredTrackByPath(filePath);
           if (existing && existing.fileSize === fileStat.size && existing.lastModified === fileStat.mtimeMs) {
-            this.database.markExistingTrackSeen(folderId, scanId, existing); report(filePath, null); continue;
+            if (existing.artworkSource === 'folder' || existing.artworkSource === 'none') {
+              const artworkHash = await folderCover(path.dirname(filePath));
+              const artworkSource = artworkHash ? 'folder' : 'none';
+              if (existing.artworkHash !== artworkHash || existing.artworkSource !== artworkSource) this.database.updateTrackArtwork(existing.id, artworkHash, artworkSource);
+              this.database.markExistingTrackSeen(folderId, scanId, existing); report(filePath, null); continue;
+            }
+            if (existing.artworkSource === 'embedded') {
+              this.database.markExistingTrackSeen(folderId, scanId, existing); report(filePath, null); continue;
+            }
           }
           const metadata = await parseFile(filePath, { duration: true, skipCovers: false });
-          const artworkHash = await this.artwork.save(metadata.common.picture?.[0]);
+          const embeddedHash = await this.artwork.save(metadata.common.picture?.[0]);
+          const artworkHash = embeddedHash ?? await folderCover(path.dirname(filePath));
+          const artworkSource = embeddedHash ? 'embedded' : artworkHash ? 'folder' : 'none';
           const common = metadata.common; const format = metadata.format;
           results.push({
             id: stableId('track', pathKey(filePath)), path: filePath, fileName: path.basename(filePath), title: common.title?.trim() || path.parse(filePath).name,
@@ -89,7 +135,7 @@ export class ScannerService {
             genre: common.genre?.[0]?.trim() || null, year: common.year ?? null, trackNumber: common.track.no ?? null, discNumber: common.disk.no ?? null,
             duration: format.duration ?? 0, codec: format.codec || format.container || null, bitrate: format.bitrate == null ? null : Math.round(format.bitrate),
             sampleRate: format.sampleRate ?? null, bitDepth: format.bitsPerSample ?? null, channels: format.numberOfChannels ?? null,
-            artwork: null, artworkHash, fileSize: fileStat.size, lastModified: fileStat.mtimeMs, isAvailable: true,
+            artwork: null, artworkHash, artworkSource, fileSize: fileStat.size, lastModified: fileStat.mtimeMs, isAvailable: true,
           });
           report(filePath, null);
         } catch (error) { report(filePath, `Skipped ${path.basename(filePath)}: ${errorMessage(error)}`); }

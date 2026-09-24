@@ -1,0 +1,220 @@
+
+    <div class="folders-page">
+      <!-- Top Action Bar -->
+      <header class="folders-header">
+        <div class="title-group">
+          <h1>Folders</h1>
+          <p class="subtitle">Browse audio files directly by filesystem structure</p>
+        </div>
+
+        <div class="toolbar">
+          <button
+            type="button"
+            class="btn-action primary"
+            (click)="onStartScan()"
+            [disabled]="scanProgress().isScanning"
+            title="Scan library folders"
+            aria-label="Scan library folders">
+            <app-icon name="refresh-cw" [size]="16" class="scan-icon" [class.spinning]="scanProgress().isScanning" />
+            {{ scanProgress().isScanning ? 'Scanning...' : 'Scan Library' }}
+          </button>
+
+          <button
+            type="button"
+            class="btn-action secondary"
+            (click)="onAddFolder()"
+            title="Add music folder"
+            aria-label="Add music folder">
+            <app-icon name="plus" [size]="16" />
+            Add Folder
+          </button>
+        </div>
+      </header>
+
+      <!-- Live Scan Progress Card (Active when scanning) -->
+      @if (scanProgress().isScanning || scanProgress().error) {
+        <div class="scan-banner" [class.has-error]="scanProgress().error">
+          <div class="scan-info">
+            <div class="scan-title-row">
+              <span class="scan-status-badge">
+                {{ scanProgress().isScanning ? 'SCAN IN PROGRESS' : 'SCAN WARNING' }}
+              </span>
+              <span class="scan-stats">
+                Scanned: <strong>{{ scanProgress().scannedFiles }}</strong> files &bull;
+                Audio found: <strong>{{ scanProgress().audioFiles }}</strong> files
+              </span>
+            </div>
+
+            @if (scanProgress().currentPath) {
+              <div class="scan-current-path truncate" [title]="scanProgress().currentPath">
+                {{ scanProgress().currentPath }}
+              </div>
+            }
+
+            @if (scanProgress().error) {
+              <div class="scan-error-msg">
+                <app-icon name="alert-triangle" [size]="14" class="warning-icon" />
+                <span>{{ scanProgress().error }}</span>
+              </div>
+            }
+          </div>
+
+          @if (scanProgress().isScanning) {
+            <!-- Indeterminate Progress Animation (No fake percentage) -->
+            <div class="indeterminate-bar">
+              <div class="indeterminate-fill"></div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Music Root Tabs -->
+      <div class="roots-bar">
+        <span class="roots-label">MUSIC ROOTS:</span>
+        <div class="roots-tabs">
+          @for (root of roots(); track root.id) {
+            <button
+              type="button"
+              class="root-tab"
+              [class.active]="selectedRootId() === root.id"
+              (click)="onSelectRoot(root)">
+              <app-icon name="folder" [size]="14" />
+              <span class="root-name truncate">{{ root.name }}</span>
+            </button>
+          }
+        </div>
+
+        @if (selectedRoot(); as root) {
+          <button
+            type="button"
+            class="btn-remove-root"
+            (click)="showRemoveDialog.set(true)"
+            title="Remove folder from library">
+            Remove Root
+          </button>
+        }
+      </div>
+
+      <!-- Breadcrumbs Navigation -->
+      <nav class="breadcrumb-trail" aria-label="Folder Breadcrumb">
+        @for (crumb of nodeStack(); track crumb.id; let idx = $index; let last = $last) {
+          @if (!last) {
+            <button type="button" class="crumb-btn" (click)="onNavigateBreadcrumb(idx)">
+              {{ crumb.name }}
+            </button>
+            <span class="crumb-sep">/</span>
+          } @else {
+            <span class="crumb-current">{{ crumb.name }}</span>
+          }
+        }
+      </nav>
+
+      <!-- Current Folder Content Browser -->
+      <div class="folder-content-view">
+        @if (errorMessage()) {
+          <div class="state-error" role="alert">
+            <app-icon name="alert-triangle" [size]="48" />
+            <p class="error-title">Folder Error</p>
+            <p class="error-desc">{{ errorMessage() }}</p>
+            <button type="button" class="btn-retry" (click)="loadRoots()">Retry</button>
+          </div>
+        } @else if (isLoading()) {
+          <div class="state-loading">
+            <div class="spinner"></div>
+            <p>Loading folder contents...</p>
+          </div>
+        } @else if (!currentNode()) {
+          <div class="state-empty">
+            <app-icon name="folder" [size]="48" class="empty-icon" />
+            <p>Select a music root above to browse folders.</p>
+          </div>
+        } @else {
+          <!-- Subfolders List -->
+          @if (subfolders().length > 0) {
+            <div class="subfolders-grid">
+              @for (folder of subfolders(); track folder.id) {
+                <div class="folder-card" (click)="onEnterFolder(folder)" tabindex="0" role="button">
+                  <div class="folder-icon-box">
+                    <app-icon name="folder" [size]="28" />
+                  </div>
+                  <span class="folder-name truncate" [title]="folder.name">{{ folder.name }}</span>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Audio Files List in Current Folder -->
+          @if (filesInCurrentFolder().length > 0) {
+            <div class="files-card">
+              <div class="files-header">
+                <h3>Files ({{ filesInCurrentFolder().length }})</h3>
+                <button type="button" class="btn-play-folder" (click)="onPlayFolderFiles()" aria-label="Play All Files">
+                  <app-icon name="play" [size]="14" />
+                  Play All Files
+                </button>
+              </div>
+
+              <table class="files-table">
+                <thead>
+                  <tr>
+                    <th class="col-num">#</th>
+                    <th class="col-title">File Name</th>
+                    <th class="col-duration">Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (file of filesInCurrentFolder(); track file.id; let i = $index) {
+                    <tr
+                      class="file-row"
+                      (dblclick)="onPlayFile(file)"
+                      tabindex="0"
+                      (keydown.enter)="onPlayFile(file)">
+                      <td class="col-num">{{ i + 1 }}</td>
+                      <td class="col-title">
+                        <div class="file-name-cell">
+                          <app-icon name="file-audio" [size]="16" class="music-icon" />
+                          <span class="file-name truncate">{{ file.name }}</span>
+                        </div>
+                      </td>
+                      <td class="col-duration">
+                        {{ getTrackDuration(file.trackId) | duration }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @if (subfolders().length === 0 && filesInCurrentFolder().length === 0) {
+            <div class="empty-folder">
+              <p>This folder does not contain any audio files or subdirectories.</p>
+            </div>
+          }
+        }
+      </div>
+
+      <!-- Remove Root Confirmation Dialog Modal -->
+      @if (showRemoveDialog()) {
+        <div class="modal-backdrop" (click)="showRemoveDialog.set(false)">
+          <div class="modal-card danger" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="removeDialogTitle">
+            <h3 id="removeDialogTitle">Remove Music Folder</h3>
+            <p class="modal-desc">
+              Are you sure you want to remove <strong>{{ selectedRoot()?.name }}</strong> from your library?
+            </p>
+            <div class="warning-box">
+              <app-icon name="alert-triangle" [size]="16" class="warning-icon" />
+              <span>
+                <strong>Safe Operation:</strong> This only removes the folder index from Audio BlaBla.
+                Your actual audio files on disk will <em>never</em> be deleted.
+              </span>
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-cancel" (click)="showRemoveDialog.set(false)">Cancel</button>
+              <button type="button" class="btn-danger" (click)="onConfirmRemoveRoot()">Remove Folder</button>
+            </div>
+          </div>
+        </div>
+      }
+    </div>

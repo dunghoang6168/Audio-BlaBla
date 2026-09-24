@@ -1,12 +1,13 @@
 import { Injectable, inject, signal, computed, OnDestroy } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { PLAYBACK_ENGINE, SETTINGS_GATEWAY } from '../contracts';
+import { LIBRARY_GATEWAY, PLAYBACK_ENGINE, SETTINGS_GATEWAY } from '../contracts';
 import { PlaybackState, QueueEntry, RepeatMode, Track } from '../models';
 
 @Injectable({ providedIn: 'root' })
 export class PlayerService implements OnDestroy {
   private readonly engine = inject(PLAYBACK_ENGINE);
   private readonly settingsGateway = inject(SETTINGS_GATEWAY, { optional: true });
+  private readonly libraryGateway = inject(LIBRARY_GATEWAY, { optional: true });
   private readonly subscriptions = new Subscription();
   private restoringSettings = false;
   private volumeSaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -51,6 +52,25 @@ export class PlayerService implements OnDestroy {
   constructor() {
     this.initEngineListeners();
     this.loadSavedSettings();
+    let wasScanning = false;
+    if (this.libraryGateway) this.subscriptions.add(this.libraryGateway.scanProgress$.subscribe((progress) => {
+      const justFinished = wasScanning && !progress.isScanning;
+      wasScanning = progress.isScanning;
+      if (justFinished) void this.refreshArtwork();
+    }));
+  }
+
+  private async refreshArtwork(): Promise<void> {
+    if (!this.libraryGateway) return;
+    try {
+      const artworkById = new Map((await this.libraryGateway.getLibrary()).tracks.map((track) => [track.id, track.artwork]));
+      const updateEntry = (entry: QueueEntry): QueueEntry => artworkById.has(entry.track.id)
+        ? { ...entry, track: { ...entry.track, artwork: artworkById.get(entry.track.id) ?? null } } : entry;
+      this.queue.update((entries) => entries.map(updateEntry));
+      this.originalQueue = this.originalQueue.map(updateEntry);
+      this.currentTrack.update((track) => track && artworkById.has(track.id)
+        ? { ...track, artwork: artworkById.get(track.id) ?? null } : track);
+    } catch { /* A scan refresh must not interrupt playback. */ }
   }
 
   ngOnDestroy(): void {
@@ -205,6 +225,16 @@ export class PlayerService implements OnDestroy {
   }
 
   async play(): Promise<void> {
+    if (this.isPlaybackActive()) return;
+
+    if (!this.currentTrack()) {
+      const q = this.queue();
+      if (q.length === 0) return;
+      this.currentIndex.set(0);
+      await this.loadAndPlayCurrent();
+      return;
+    }
+
     this.playRequested.set(true);
     try {
       await this.engine.play();
@@ -215,13 +245,27 @@ export class PlayerService implements OnDestroy {
   }
 
   pause(): void {
+    if (!this.isPlaybackActive()) return;
     this.playRequested.set(false);
     this.engine.pause();
     if (this.playbackState() === 'loading') this.playbackState.set('paused');
   }
 
   seek(positionSeconds: number): void {
-    this.engine.seek(positionSeconds);
+    if (!Number.isFinite(positionSeconds)) return;
+    const duration = this.duration();
+    const upperBound = Number.isFinite(duration) && duration > 0 ? duration : Number.POSITIVE_INFINITY;
+    this.engine.seek(Math.max(0, Math.min(positionSeconds, upperBound)));
+  }
+
+  seekBy(offsetSeconds: number): void {
+    if (!Number.isFinite(offsetSeconds)) return;
+    this.seek(this.currentTime() + offsetSeconds);
+  }
+
+  stop(): void {
+    this.pause();
+    if (this.currentTrack()) this.seek(0);
   }
 
   setVolume(newVolume: number): void {

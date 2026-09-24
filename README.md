@@ -17,9 +17,10 @@ Phase 1 UI/UX, Phase 2 desktop integration và Phase 3 UI foundation đã hoàn 
 - Queue album được chuẩn hóa theo disc number và track number, không phụ thuộc thứ tự metadata trả về.
 - Phase 3 bổ sung semantic design tokens, 8 theme preset (4 dark, 4 light), 6 accent color và bộ icon SVG tập trung qua `IconComponent`.
 - Phase 3.2 bổ sung real-time spectrum visualizer trên Now Playing, lấy dữ liệu FFT từ chính `HTMLAudioElement` qua Web Audio API.
-- 65 Angular tests và 5 backend integration tests đã thành công tại thời điểm hoàn thành Phase 3.2.
+- Phase 3.3–3.5 bổ sung Track Properties, app header tích hợp, global search, Media Session cho phím media, metadata nghệ sĩ online và cấu trúc component TS/HTML/SCSS tách biệt.
+- Checkpoint hiện tại đạt 147 Angular tests, 22 backend integration tests, production build và Electron smoke test.
 
-Nghiệm thu thủ công cơ bản trên Windows đã hoàn thành cho folder picker, scan library, playback, seek và chuyển bài. Chưa có installer, code signing hoặc bản phát hành Windows. Kiểm thử mở rộng với library lớn, nhiều codec/container và các trường hợp filesystem bất thường tiếp tục được thực hiện khi cần.
+Nghiệm thu thủ công cơ bản trên Windows đã hoàn thành cho folder picker, scan library, playback, seek và chuyển bài. Dự án đã có cấu hình tạo NSIS installer và bản portable Windows nhưng chưa có app icon chính thức, code signing hoặc bản phát hành công khai. Kiểm thử mở rộng với library lớn, nhiều codec/container và các trường hợp filesystem bất thường tiếp tục được thực hiện khi cần.
 
 Giao diện hiện tại là nền tảng ổn định để sử dụng và tiếp tục tinh chỉnh. Phase 3.1 tập trung vào visual refinement dựa trên các ứng dụng desktop music player tham khảo; phase này không thay đổi playback, IPC, database hoặc scanner.
 
@@ -151,6 +152,30 @@ npm run electron
 ```
 
 Angular output nằm tại `dist/audio-blabla/`; Main và preload nằm tại `dist-electron/`. `npm run electron` build lại trước khi mở app và chưa tạo installer.
+
+### Đóng gói bản demo Windows
+
+Yêu cầu Node.js 22 trở lên, npm và Windows x64. Cài dependencies theo lockfile rồi tạo đồng thời installer và bản portable:
+
+```powershell
+npm ci
+npm run package:win
+```
+
+Artifact được tạo trong `release/`:
+
+- `Audio-BlaBla-Setup-0.1.0-x64.exe`: installer theo user, có shortcut Desktop/Start Menu và cho phép chọn thư mục cài đặt.
+- `Audio-BlaBla-Portable-0.1.0-x64.exe`: chạy trực tiếp, không cần cài đặt.
+
+Để tạo bản unpacked phục vụ kiểm tra nhanh mà không sinh installer:
+
+```powershell
+npm run package:win:dir
+```
+
+Bản demo hiện chưa ký số nên Windows có thể hiển thị cảnh báo SmartScreen hoặc `Unknown publisher`. Icon đóng gói hiện dùng icon mặc định của Electron; cần thay bằng file `.ico` đa kích thước, tối đa ít nhất 256×256, trước khi phát hành chính thức.
+
+Database và artwork vẫn nằm trong thư mục `userData` của Windows, tách khỏi thư mục cài đặt. Gỡ ứng dụng không xóa dữ liệu này.
 
 ### Kiểm thử
 

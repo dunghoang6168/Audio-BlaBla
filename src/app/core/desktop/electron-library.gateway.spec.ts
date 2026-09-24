@@ -14,6 +14,7 @@ describe('ElectronLibraryGateway', () => {
       library: {
         getSnapshot: jasmine.createSpy().and.resolveTo({ tracks: [], albums: [], artists: [], folders: [] }),
         getFolderTree: jasmine.createSpy().and.resolveTo(null),
+        getTrackDetails: jasmine.createSpy().and.resolveTo({ trackId: 'track-test' }),
         selectAndAddFolders: jasmine.createSpy().and.resolveTo([]),
         removeFolder: jasmine.createSpy().and.resolveTo(),
         startScan: jasmine.createSpy().and.resolveTo(),
@@ -32,8 +33,10 @@ describe('ElectronLibraryGateway', () => {
     const api = window.desktop!;
     await gateway.selectAndAddMusicFolders();
     await gateway.requestScan(['folder-' + 'a'.repeat(64)]);
+    await gateway.getTrackDetails('track-' + 'b'.repeat(64));
     expect(api.library.selectAndAddFolders).toHaveBeenCalled();
     expect(api.library.startScan).toHaveBeenCalledWith(['folder-' + 'a'.repeat(64)]);
+    expect(api.library.getTrackDetails).toHaveBeenCalledWith('track-' + 'b'.repeat(64));
   });
 
   it('forwards scan progress without exposing Electron event objects', () => {

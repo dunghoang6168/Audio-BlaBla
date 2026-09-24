@@ -1,229 +1,123 @@
-import { Component, input, output } from '@angular/core';
+import { Component, OnDestroy, computed, effect, input, output, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { IconComponent } from '../icon/icon.component';
+
+export type SidebarPhase = 'expanded' | 'collapsing' | 'collapsed' | 'expanding';
+
+const LABEL_DELAY_MS = 70;
+const COLLAPSE_WIDTH_DELAY_MS = 50;
+const WIDTH_TRANSITION_MS = 160;
+const TRANSITION_FALLBACK_PADDING_MS = 50;
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
   imports: [CommonModule, RouterModule, IconComponent],
-  template: `
-    <aside class="sidebar" [class.collapsed]="isCollapsed()">
-      <!-- Brand Logo -->
-      <div class="brand">
-        <div class="logo-icon" aria-hidden="true">
-          <app-icon name="headphones" [size]="20" />
-        </div>
-        @if (!isCollapsed()) {
-          <div class="brand-text">
-            <span class="title">Audio BlaBla</span>
-            <span class="tag">Hi-Res Player</span>
-          </div>
-        }
-      </div>
-
-      <!-- Navigation Links -->
-      <nav class="nav-menu" aria-label="Main Navigation">
-        <div class="nav-section-title">LIBRARY</div>
-
-        <a routerLink="/home" routerLinkActive="active" class="nav-item" title="Home">
-          <app-icon name="home" [size]="18" class="nav-icon" />
-          @if (!isCollapsed()) { <span class="nav-label">Home</span> }
-        </a>
-
-        <a routerLink="/songs" routerLinkActive="active" class="nav-item" title="Songs">
-          <app-icon name="music" [size]="18" class="nav-icon" />
-          @if (!isCollapsed()) { <span class="nav-label">Songs</span> }
-        </a>
-
-        <a routerLink="/albums" routerLinkActive="active" class="nav-item" title="Albums">
-          <app-icon name="disc" [size]="18" class="nav-icon" />
-          @if (!isCollapsed()) { <span class="nav-label">Albums</span> }
-        </a>
-
-        <a routerLink="/artists" routerLinkActive="active" class="nav-item" title="Artists">
-          <app-icon name="user" [size]="18" class="nav-icon" />
-          @if (!isCollapsed()) { <span class="nav-label">Artists</span> }
-        </a>
-
-        <a routerLink="/folders" routerLinkActive="active" class="nav-item" title="Folders">
-          <app-icon name="folder" [size]="18" class="nav-icon" />
-          @if (!isCollapsed()) { <span class="nav-label">Folders</span> }
-        </a>
-
-        <a routerLink="/playlists" routerLinkActive="active" class="nav-item" title="Playlists">
-          <app-icon name="list-music" [size]="18" class="nav-icon" />
-          @if (!isCollapsed()) { <span class="nav-label">Playlists</span> }
-        </a>
-      </nav>
-
-      <!-- Bottom Settings Link & Collapse toggle -->
-      <div class="sidebar-footer">
-        <a routerLink="/settings" routerLinkActive="active" class="nav-item" title="Settings">
-          <app-icon name="settings" [size]="18" class="nav-icon" />
-          @if (!isCollapsed()) { <span class="nav-label">Settings</span> }
-        </a>
-
-        <button type="button" class="collapse-btn" (click)="toggleCollapse.emit()" [title]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'" [attr.aria-label]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
-          <app-icon [name]="isCollapsed() ? 'chevron-right' : 'chevron-left'" [size]="16" />
-        </button>
-      </div>
-    </aside>
-  `,
-  styles: [`
-    .sidebar {
-      width: var(--sidebar-width);
-      height: 100%;
-      background: var(--color-navigation);
-      border-right: 1px solid var(--color-border-subtle);
-      display: flex;
-      flex-direction: column;
-      transition:
-        width var(--transition-normal),
-        background-color var(--transition-normal),
-        border-color var(--transition-normal),
-        color var(--transition-normal);
-      flex-shrink: 0;
-      user-select: none;
-    }
-
-    .sidebar.collapsed {
-      width: var(--sidebar-collapsed-width);
-    }
-
-    .brand {
-      height: 64px;
-      padding: 0 var(--space-4);
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      border-bottom: 1px solid var(--border-subtle);
-    }
-
-    .logo-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: var(--radius-md);
-      background: linear-gradient(135deg, var(--accent-primary), var(--accent-active));
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      box-shadow: 0 4px 12px var(--accent-glow);
-    }
-
-    .brand-text {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .brand-text .title {
-      font-weight: 700;
-      font-size: var(--font-size-md);
-      color: var(--text-primary);
-      letter-spacing: -0.02em;
-    }
-
-    .brand-text .tag {
-      font-size: 11px;
-      color: var(--accent-primary);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .nav-menu {
-      flex: 1;
-      padding: var(--space-4) var(--space-2);
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      overflow-y: auto;
-    }
-
-    .nav-section-title {
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      color: var(--text-muted);
-      padding: var(--space-2) var(--space-3);
-      margin-bottom: var(--space-1);
-    }
-
-    .sidebar.collapsed .nav-section-title {
-      display: none;
-    }
-
-    .nav-item {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-      padding: var(--space-2) var(--space-3);
-      border-radius: var(--radius-md);
-      color: var(--text-secondary);
-      text-decoration: none;
-      font-size: var(--font-size-base);
-      font-weight: 500;
-      transition: background var(--transition-fast), color var(--transition-fast);
-      white-space: nowrap;
-    }
-
-    .nav-item:hover {
-      background: var(--bg-surface-hover);
-      color: var(--text-primary);
-    }
-
-    .nav-item.active {
-      background: var(--accent-muted);
-      color: var(--accent-primary);
-      font-weight: 600;
-    }
-
-    .nav-icon {
-      flex-shrink: 0;
-    }
-
-    .sidebar.collapsed .nav-item {
-      justify-content: center;
-      padding: var(--space-3);
-    }
-
-    .sidebar-footer {
-      padding: var(--space-3) var(--space-2);
-      border-top: 1px solid var(--border-subtle);
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-    }
-
-    .sidebar-footer .nav-item {
-      flex: 1;
-    }
-
-    .collapse-btn {
-      width: 32px;
-      height: 32px;
-      border-radius: var(--radius-md);
-      color: var(--text-muted);
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      flex-shrink: 0;
-      transition: color var(--transition-fast), background var(--transition-fast);
-    }
-
-    .collapse-btn:hover {
-      color: var(--text-primary);
-      background: var(--bg-surface-hover);
-    }
-
-    .sidebar.collapsed .sidebar-footer {
-      flex-direction: column;
-    }
-  `]
+  templateUrl: './sidebar.component.html',
+  styleUrl: './sidebar.component.scss'
 })
-export class SidebarComponent {
+export class SidebarComponent implements OnDestroy {
   readonly isCollapsed = input<boolean>(false);
   readonly toggleCollapse = output<void>();
+  readonly phase = signal<SidebarPhase>('expanded');
+  readonly widthCollapsed = signal(false);
+  readonly labelsVisible = signal(true);
+  readonly contentCollapsed = computed(() => this.phase() === 'collapsed');
+  readonly isAnimating = computed(() => this.phase() === 'collapsing' || this.phase() === 'expanding');
+
+  private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  private readonly timers = new Set<ReturnType<typeof setTimeout>>();
+  private initialized = false;
+
+  constructor() {
+    effect(() => {
+      const collapsed = this.isCollapsed();
+      untracked(() => {
+        if (!this.initialized) {
+          this.initialized = true;
+          this.applyImmediateState(collapsed);
+          return;
+        }
+        this.transitionTo(collapsed);
+      });
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.clearTimers();
+  }
+
+  onWidthTransitionEnd(event: TransitionEvent): void {
+    if (event.propertyName !== 'width' || event.target !== event.currentTarget) return;
+    if (this.phase() === 'collapsing' && this.widthCollapsed()) this.finishTransition(true);
+    else if (this.phase() === 'expanding' && !this.widthCollapsed()) this.finishTransition(false);
+  }
+
+  private transitionTo(collapsed: boolean): void {
+    this.clearTimers();
+    if (this.reducedMotion.matches) {
+      this.applyImmediateState(collapsed);
+      return;
+    }
+
+    if (collapsed) this.startCollapsing();
+    else this.startExpanding();
+  }
+
+  private startCollapsing(): void {
+    this.phase.set('collapsing');
+    this.labelsVisible.set(false);
+
+    this.schedule(() => {
+      if (this.phase() !== 'collapsing') return;
+      this.widthCollapsed.set(true);
+    }, COLLAPSE_WIDTH_DELAY_MS);
+    this.schedule(
+      () => this.finishTransition(true),
+      COLLAPSE_WIDTH_DELAY_MS + WIDTH_TRANSITION_MS + TRANSITION_FALLBACK_PADDING_MS,
+    );
+  }
+
+  private startExpanding(): void {
+    this.phase.set('expanding');
+    this.labelsVisible.set(false);
+    this.widthCollapsed.set(false);
+
+    this.schedule(() => {
+      if (this.phase() === 'expanding') this.labelsVisible.set(true);
+    }, LABEL_DELAY_MS);
+    this.schedule(
+      () => this.finishTransition(false),
+      WIDTH_TRANSITION_MS + TRANSITION_FALLBACK_PADDING_MS,
+    );
+  }
+
+  private finishTransition(collapsed: boolean): void {
+    if (this.isCollapsed() !== collapsed) return;
+    this.clearTimers();
+    this.phase.set(collapsed ? 'collapsed' : 'expanded');
+    this.widthCollapsed.set(collapsed);
+    this.labelsVisible.set(!collapsed);
+  }
+
+  private applyImmediateState(collapsed: boolean): void {
+    this.clearTimers();
+    this.phase.set(collapsed ? 'collapsed' : 'expanded');
+    this.widthCollapsed.set(collapsed);
+    this.labelsVisible.set(!collapsed);
+  }
+
+  private schedule(callback: () => void, delay: number): void {
+    const timer = setTimeout(() => {
+      this.timers.delete(timer);
+      callback();
+    }, delay);
+    this.timers.add(timer);
+  }
+
+  private clearTimers(): void {
+    for (const timer of this.timers) clearTimeout(timer);
+    this.timers.clear();
+  }
 }

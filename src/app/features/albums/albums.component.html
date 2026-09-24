@@ -1,0 +1,112 @@
+
+    <div class="albums-page">
+      <header class="page-header">
+        <div class="title-group">
+          <h1>Albums</h1>
+          <span class="count-badge">{{ filteredAlbums().length }} albums</span>
+        </div>
+
+        <div class="browse-controls">
+          <div class="search-box">
+            <app-icon name="search" [size]="16" class="search-icon" />
+            <input type="text" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)"
+              placeholder="Search albums by title or artist..." aria-label="Search albums" />
+            @if (searchQuery()) {
+              <button type="button" class="clear-btn" (click)="searchQuery.set('')" title="Clear search" aria-label="Clear search">
+                <app-icon name="x" [size]="14" />
+              </button>
+            }
+          </div>
+          <app-browse-filter-popover [activeCount]="activeFilterCount()">
+            <div class="browse-filter-fields">
+              <div class="browse-filter-field">
+                <label for="album-sort">Sort by</label>
+                <div class="browse-filter-actions">
+                  <select id="album-sort" [ngModel]="sortBy()" (ngModelChange)="sortBy.set($event)">
+                    <option value="title">Title</option><option value="artist">Artist</option>
+                    <option value="year">Year</option><option value="tracks">Track count</option>
+                  </select>
+                  <select aria-label="Sort direction" [ngModel]="sortDirection()" (ngModelChange)="sortDirection.set($event)">
+                    <option value="asc">Ascending</option><option value="desc">Descending</option>
+                  </select>
+                </div>
+              </div>
+              <div class="browse-filter-field">
+                <label for="album-artist-filter">Artist</label>
+                <select id="album-artist-filter" [ngModel]="artistFilter()" (ngModelChange)="artistFilter.set($event)">
+                  <option value="">All artists</option>
+                  @for (artist of artistOptions(); track artist) { <option [value]="artist">{{ artist }}</option> }
+                  @if (hasUnknownArtist()) { <option value="__unknown_artist__">Unknown Artist</option> }
+                </select>
+              </div>
+              <div class="browse-filter-field">
+                <label for="album-year-filter">Year</label>
+                <select id="album-year-filter" [ngModel]="yearFilter()" (ngModelChange)="yearFilter.set($event)">
+                  <option value="">All years</option>
+                  @for (year of yearOptions(); track year) { <option [value]="year">{{ year }}</option> }
+                  @if (hasUnknownYear()) { <option value="unknown">Unknown Year</option> }
+                </select>
+              </div>
+              @if (activeFilterCount()) { <button type="button" class="browse-filter-clear" (click)="clearFilters()">Clear filters</button> }
+            </div>
+          </app-browse-filter-popover>
+        </div>
+      </header>
+
+      @if (errorMessage()) {
+        <div class="state-error" role="alert">
+          <app-icon name="alert-triangle" [size]="48" />
+          <p class="error-title">Failed to load albums</p>
+          <p class="error-desc">{{ errorMessage() }}</p>
+          <button type="button" class="btn-retry" (click)="loadAlbums()">Retry</button>
+        </div>
+      } @else if (isLoading()) {
+        <div class="state-loading">
+          <div class="spinner"></div>
+          <p>Loading albums...</p>
+        </div>
+      } @else if (filteredAlbums().length === 0) {
+        <div class="state-empty">
+          <app-icon name="disc" [size]="48" class="empty-icon" />
+          <p class="empty-title">No albums found</p>
+          <p class="empty-desc">{{ hasFilters() ? 'No albums match your search or filters.' : 'Your music library is empty.' }}</p>
+        </div>
+      } @else {
+        <div class="albums-grid">
+          @for (album of filteredAlbums(); track album.id) {
+            <div class="album-card" [routerLink]="['/albums', album.id]" tabindex="0" role="button">
+              <div class="cover-wrapper">
+                @if (album.artwork) {
+                  <img [src]="album.artwork" [alt]="album.title" class="cover-img" />
+                } @else {
+                  <div class="cover-placeholder" aria-hidden="true">
+                    <app-icon name="disc" [size]="48" />
+                  </div>
+                }
+                <!-- Quick Play Overlay Button -->
+                <button
+                  type="button"
+                  class="quick-play-btn"
+                  (click)="onPlayAlbum($event, album)"
+                  title="Play Album"
+                  aria-label="Play Album">
+                  <app-icon name="play" [size]="20" />
+                </button>
+              </div>
+
+              <div class="album-meta">
+                <h3 class="album-title truncate" [title]="album.title">{{ album.title }}</h3>
+                <p class="album-artist truncate" [title]="album.artist || 'Unknown Artist'">
+                  {{ album.artist || 'Unknown Artist' }}
+                </p>
+                <div class="album-sub">
+                  <span>{{ album.year || 'Unknown Year' }}</span>
+                  <span class="dot">•</span>
+                  <span>{{ album.trackIds.length }} tracks</span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>

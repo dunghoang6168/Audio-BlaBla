@@ -1,0 +1,78 @@
+
+    <div class="search-root">
+      <div class="search-field" [class.open]="isOpen()">
+        <app-icon name="search" [size]="18" class="search-icon" />
+        <input
+          #searchInput
+          type="search"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Search songs, albums, artists"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-label="Search local music library"
+          aria-controls="global-search-results"
+          [attr.aria-expanded]="isOpen() && hasQuery()"
+          [attr.aria-activedescendant]="activeKey() ? optionId(activeKey()!) : null"
+          [value]="query()"
+          (focus)="openSearch()"
+          (input)="updateQuery($event)"
+          (keydown)="onSearchKeyDown($event)" />
+        @if (query()) {
+          <button type="button" class="clear-search" (click)="clear()" aria-label="Clear search">
+            <app-icon name="x" [size]="15" />
+          </button>
+        } @else {
+          <kbd>Ctrl K</kbd>
+        }
+      </div>
+
+      @if (isOpen() && hasQuery()) {
+        <div id="global-search-results" class="search-results" role="listbox" aria-label="Search results">
+          @if (loading()) {
+            <div class="search-state" role="status"><span class="spinner"></span>Searching library…</div>
+          } @else if (error()) {
+            <div class="search-state error-state" role="alert">
+              <span>{{ error() }}</span>
+              <button type="button" (click)="reload()">Retry</button>
+            </div>
+          } @else if (flatResults().length === 0) {
+            <div class="search-state">No local results for “{{ query().trim() }}”</div>
+          } @else {
+            @for (group of groups(); track group.label) {
+              @if (group.results.length) {
+                <section class="result-group" [attr.aria-label]="group.label">
+                  <h3>{{ group.label }}</h3>
+                  @for (result of group.results; track result.key) {
+                    <button
+                      type="button"
+                      role="option"
+                      class="result-item"
+                      [id]="optionId(result.key)"
+                      [class.active]="activeKey() === result.key"
+                      [class.unavailable]="result.disabled"
+                      [attr.aria-selected]="activeKey() === result.key"
+                      [attr.aria-disabled]="result.disabled"
+                      (mouseenter)="setActive(result)"
+                      (click)="activate(result)">
+                      @if (result.artwork) {
+                        <img [src]="result.artwork" alt="" />
+                      } @else {
+                        <span class="result-icon" aria-hidden="true">
+                          <app-icon [name]="result.kind === 'artist' ? 'user' : result.kind === 'album' ? 'disc' : 'music'" [size]="17" />
+                        </span>
+                      }
+                      <span class="result-copy">
+                        <strong>{{ result.title }}</strong>
+                        <small>{{ result.subtitle }}</small>
+                      </span>
+                      <span class="result-type">{{ result.disabled ? 'Unavailable' : result.kind }}</span>
+                    </button>
+                  }
+                </section>
+              }
+            }
+          }
+        </div>
+      }
+    </div>

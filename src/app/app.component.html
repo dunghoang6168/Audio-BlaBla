@@ -1,0 +1,29 @@
+
+    <div class="app-layout">
+      <app-header />
+
+      <!-- Main Workspace (Sidebar + Router Content + Queue Drawer) -->
+      <div class="workspace">
+        <app-sidebar
+          [isCollapsed]="isSidebarCollapsed()"
+          (toggleCollapse)="onToggleSidebar()"
+        />
+
+        <main class="main-content" role="main">
+          <router-outlet />
+        </main>
+
+        <app-track-details-panel [open]="rightPanels.isTrackDetailsOpen()" />
+
+        <app-queue-drawer
+          [isOpen]="isQueueOpen()"
+          (close)="onCloseQueue()"
+        />
+      </div>
+
+      <!-- Fixed Bottom Player Bar -->
+      <app-player-bar
+        [isQueueOpen]="isQueueOpen()"
+        (toggleQueue)="onToggleQueue()"
+      />
+    </div>

@@ -1,16 +1,32 @@
 import { LibrarySnapshot } from '../contracts/library.gateway';
-import { FolderNode, MusicFolder, Playlist, ScanProgress, Settings } from '../models';
+import { ArtistMatchCandidate, ArtistMetadataUpdate, ArtistOnlineMetadata, FolderNode, MusicFolder, Playlist, ScanProgress, Settings, TrackDetails } from '../models';
 
 export interface DesktopApi {
   readonly runtime: 'electron';
   ping(): Promise<'pong'>;
+  windowControls: {
+    setTitleBarAppearance(mode: 'light' | 'dark'): Promise<void>;
+  };
   library: {
     getSnapshot(): Promise<LibrarySnapshot>;
     getFolderTree(folderId: string): Promise<FolderNode | null>;
+    getTrackDetails(trackId: string): Promise<TrackDetails>;
     selectAndAddFolders(): Promise<MusicFolder[]>;
     removeFolder(folderId: string): Promise<void>;
     startScan(folderIds?: string[]): Promise<void>;
     onScanProgress(listener: (progress: ScanProgress) => void): () => void;
+  };
+  artistMetadata: {
+    refreshMissing(force?: boolean): Promise<void>;
+    ensureArtist(artistId: string): Promise<void>;
+    refreshArtist(artistId: string): Promise<ArtistOnlineMetadata | null>;
+    searchCandidates(artistName: string): Promise<ArtistMatchCandidate[]>;
+    setArtistMatch(artistId: string, musicBrainzId: string): Promise<ArtistOnlineMetadata | null>;
+    setWikipediaOverride(artistId: string, url: string | null): Promise<ArtistOnlineMetadata | null>;
+    selectCustomAvatar(artistId: string): Promise<string | null>;
+    clearCustomAvatar(artistId: string): Promise<void>;
+    openSource(url: string): Promise<void>;
+    onUpdated(listener: (update: ArtistMetadataUpdate) => void): () => void;
   };
   playlists: {
     list(): Promise<Playlist[]>;

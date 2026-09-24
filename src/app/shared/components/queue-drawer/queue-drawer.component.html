@@ -1,0 +1,111 @@
+
+    <aside
+      class="queue-drawer"
+      [class.open]="isOpen()"
+      role="dialog"
+      aria-label="Playback Queue"
+      [attr.aria-hidden]="!isOpen()">
+      <!-- Drawer Header -->
+      <div class="drawer-header">
+        <div class="drawer-title-group">
+          <h2>Play Queue</h2>
+          <span class="queue-count">{{ player.queue().length }} tracks</span>
+        </div>
+
+        <div class="drawer-actions">
+          <button
+            type="button"
+            class="clear-btn"
+            (click)="player.clearQueue()"
+            [disabled]="player.queue().length === 0"
+            title="Clear all tracks from queue"
+            aria-label="Clear Queue">
+            Clear
+          </button>
+
+          <button
+            type="button"
+            class="close-btn"
+            (click)="close.emit()"
+            title="Close queue (Esc)"
+            aria-label="Close queue">
+            <app-icon name="x" [size]="18" />
+          </button>
+        </div>
+      </div>
+
+      <!-- Drawer Content -->
+      <div class="drawer-content">
+        @if (player.queue().length === 0) {
+          <div class="empty-queue">
+            <app-icon name="queue" [size]="40" class="empty-icon" />
+            <p class="empty-text">Queue is empty</p>
+            <span class="empty-subtext">Double click any song or album to start listening.</span>
+          </div>
+        } @else {
+          <div class="queue-list" role="list">
+            @for (entry of player.queue(); track entry.id; let i = $index) {
+              <div
+                class="queue-item"
+                [class.current]="player.currentIndex() === i"
+                [class.unavailable]="!entry.track.isAvailable"
+                (click)="player.jumpToQueueIndex(i)"
+                role="listitem"
+                tabindex="0"
+                (keydown.enter)="player.jumpToQueueIndex(i)">
+                <!-- Index or Playing Indicator -->
+                <div class="queue-item-index">
+                  @if (player.currentIndex() === i) {
+                    <div class="playing-indicator" title="Current track">
+                      @if (player.isPlaying()) {
+                        <span class="bar bar-1"></span>
+                        <span class="bar bar-2"></span>
+                        <span class="bar bar-3"></span>
+                      } @else {
+                        <app-icon name="pause" [size]="10" class="pause-icon" />
+                      }
+                    </div>
+                  } @else {
+                    <span class="item-num">{{ i + 1 }}</span>
+                  }
+                </div>
+
+                <!-- Artwork Thumbnail -->
+                @if (entry.track.artwork) {
+                  <img [src]="entry.track.artwork" [alt]="entry.track.title" class="thumb-img" />
+                } @else {
+                  <div class="thumb-placeholder" aria-hidden="true">
+                    <app-icon name="music" [size]="16" />
+                  </div>
+                }
+
+                <!-- Track Info -->
+                <div class="queue-item-meta">
+                  <span class="track-title truncate" [title]="entry.track.title">
+                    {{ entry.track.title }}
+                  </span>
+                  <span class="track-artist truncate" [title]="entry.track.artist || 'Unknown Artist'">
+                    {{ entry.track.artist || 'Unknown Artist' }}
+                  </span>
+                </div>
+
+                <!-- Duration -->
+                <span class="queue-item-duration">
+                  {{ entry.track.duration | duration }}
+                </span>
+
+                <!-- Remove Button -->
+                <button
+                  type="button"
+                  class="remove-btn"
+                  (click)="onRemove($event, entry.id)"
+                  title="Remove from queue"
+                  aria-label="Remove track from queue">
+                  <app-icon name="x" [size]="14" />
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    </aside>

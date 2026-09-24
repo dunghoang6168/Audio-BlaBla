@@ -1,0 +1,139 @@
+
+    <div class="playlists-page">
+      <header class="page-header">
+        <div class="title-group">
+          <h1>Playlists</h1>
+          <span class="count-badge">{{ playlists().length }} playlists</span>
+        </div>
+
+        <button type="button" class="btn-create" (click)="showCreateModal.set(true)" aria-label="New Playlist">
+          <app-icon name="plus" [size]="16" />
+          New Playlist
+        </button>
+      </header>
+
+      @if (errorMessage()) {
+        <div class="state-error" role="alert">
+          <app-icon name="alert-triangle" [size]="48" />
+          <p class="error-title">Failed to load playlists</p>
+          <p class="error-desc">{{ errorMessage() }}</p>
+          <button type="button" class="btn-retry" (click)="loadData()">Retry</button>
+        </div>
+      } @else if (isLoading()) {
+        <div class="state-loading">
+          <div class="spinner"></div>
+          <p>Loading playlists...</p>
+        </div>
+      } @else if (playlists().length === 0) {
+        <div class="state-empty">
+          <app-icon name="list-music" [size]="48" class="empty-icon" />
+          <p class="empty-title">No playlists yet</p>
+          <p class="empty-desc">Create your first playlist to organize your favorite music.</p>
+          <button type="button" class="btn-create" (click)="showCreateModal.set(true)">Create Playlist</button>
+        </div>
+      } @else {
+        <div class="playlists-grid">
+          @for (playlist of playlists(); track playlist.id) {
+            <div class="playlist-card" [routerLink]="['/playlists', playlist.id]" tabindex="0" role="button">
+              <div class="playlist-icon-box">
+                <app-icon name="list-music" [size]="36" />
+
+                <button
+                  type="button"
+                  class="quick-play-btn"
+                  (click)="onPlayPlaylist($event, playlist)"
+                  [disabled]="playlist.entries.length === 0"
+                  title="Play Playlist"
+                  aria-label="Play Playlist">
+                  <app-icon name="play" [size]="18" />
+                </button>
+              </div>
+
+              <div class="playlist-info">
+                <h3 class="playlist-name truncate" [title]="playlist.name">{{ playlist.name }}</h3>
+                <span class="playlist-stats">{{ playlist.entries.length }} tracks</span>
+              </div>
+
+              <div class="card-actions" (click)="$event.stopPropagation()">
+                <button
+                  type="button"
+                  class="btn-icon"
+                  (click)="onOpenRename($event, playlist)"
+                  title="Rename Playlist"
+                  aria-label="Rename Playlist">
+                  <app-icon name="edit" [size]="14" />
+                </button>
+                <button
+                  type="button"
+                  class="btn-icon delete"
+                  (click)="onOpenDelete($event, playlist)"
+                  title="Delete Playlist"
+                  aria-label="Delete Playlist">
+                  <app-icon name="trash" [size]="14" />
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Create Playlist Modal -->
+      @if (showCreateModal()) {
+        <div class="modal-backdrop" (click)="showCreateModal.set(false)">
+          <div class="modal-card" (click)="$event.stopPropagation()">
+            <h3>Create Playlist</h3>
+            <p class="modal-desc">Give your new playlist a descriptive name:</p>
+            <input
+              type="text"
+              class="modal-input"
+              [(ngModel)]="newPlaylistName"
+              placeholder="e.g. Acoustic Chill, Workout"
+              (keydown.enter)="onConfirmCreate()"
+              autofocus />
+            <div class="modal-actions">
+              <button type="button" class="btn-cancel" (click)="showCreateModal.set(false)">Cancel</button>
+              <button type="button" class="btn-confirm" (click)="onConfirmCreate()">Create</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Rename Modal -->
+      @if (playlistToRename()) {
+        <div class="modal-backdrop" (click)="playlistToRename.set(null)">
+          <div class="modal-card" (click)="$event.stopPropagation()">
+            <h3>Rename Playlist</h3>
+            <input
+              type="text"
+              class="modal-input"
+              [(ngModel)]="renameValue"
+              (keydown.enter)="onConfirmRename()"
+              autofocus />
+            <div class="modal-actions">
+              <button type="button" class="btn-cancel" (click)="playlistToRename.set(null)">Cancel</button>
+              <button type="button" class="btn-confirm" (click)="onConfirmRename()">Save</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Delete Confirmation Modal -->
+      @if (playlistToDelete()) {
+        <div class="modal-backdrop" (click)="playlistToDelete.set(null)">
+          <div class="modal-card danger" (click)="$event.stopPropagation()">
+            <h3>Delete Playlist</h3>
+            <p class="modal-desc">
+              Are you sure you want to delete <strong>{{ playlistToDelete()?.name }}</strong>?
+            </p>
+            <div class="safe-note">
+              <app-icon name="check" [size]="16" class="safe-icon" />
+              <span><strong>Safe:</strong> This will delete the playlist. Your music library files will not be touched.</span>
+            </div>
+            <div class="modal-actions">
+              <button type="button" class="btn-cancel" (click)="playlistToDelete.set(null)">Cancel</button>
+              <button type="button" class="btn-danger" (click)="onConfirmDelete()">Delete Playlist</button>
+            </div>
+          </div>
+        </div>
+      }
+    </div>

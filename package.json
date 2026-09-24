@@ -1,6 +1,8 @@
 {
   "name": "audio-blabla",
   "version": "0.1.0",
+  "description": "A local-first desktop music library and player.",
+  "productName": "Audio BlaBla",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -13,6 +15,8 @@
     "dev:electron": "npm run build:electron && wait-on http://localhost:4200 && node scripts/run-electron.mjs --dev",
     "electron": "npm run build && node scripts/run-electron.mjs",
     "smoke:electron": "npm run build && node scripts/run-electron.mjs --smoke",
+    "package:win": "npm run build && electron-builder --win",
+    "package:win:dir": "npm run build && electron-builder --win --dir",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:electron": "tsup --config tsup.electron-tests.config.ts && node scripts/fix-electron-bundle.mjs dist-electron-tests/backend.test.js && node --test dist-electron-tests/backend.test.js",
@@ -40,6 +44,7 @@
     "@types/node": "^24.10.1",
     "concurrently": "^9.2.1",
     "electron": "^44.4.1",
+    "electron-builder": "^26.15.3",
     "jasmine-core": "~5.6.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
@@ -49,5 +54,47 @@
     "tsup": "^8.5.1",
     "typescript": "~5.9.3",
     "wait-on": "^8.0.4"
+  },
+  "build": {
+    "appId": "com.audioblabla.desktop",
+    "productName": "Audio BlaBla",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/audio-blabla/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "artifactName": "Audio-BlaBla-Setup-${version}-${arch}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Audio BlaBla",
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "Audio-BlaBla-Portable-${version}-${arch}.${ext}"
+    }
   }
 }

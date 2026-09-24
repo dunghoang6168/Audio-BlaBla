@@ -1,0 +1,206 @@
+
+    <div class="playlist-detail-page">
+      <nav class="breadcrumb">
+        <a routerLink="/playlists" class="back-link">
+          <app-icon name="chevron-left" [size]="16" />
+          Back to Playlists
+        </a>
+      </nav>
+
+      @if (isLoading()) {
+        <div class="state-loading">
+          <div class="spinner"></div>
+          <p>Loading playlist...</p>
+        </div>
+      } @else if (!playlist()) {
+        <div class="state-empty">
+          <h2>Playlist Not Found</h2>
+          <p>This playlist does not exist or has been deleted.</p>
+          <a routerLink="/playlists" class="btn-back">Browse Playlists</a>
+        </div>
+      } @else {
+        <!-- Playlist Hero -->
+        <header class="playlist-hero">
+          <div class="hero-icon-box">
+            <app-icon name="list-music" [size]="64" />
+          </div>
+
+          <div class="hero-info">
+            <span class="type-tag">PLAYLIST</span>
+            <h1 class="playlist-name">{{ playlist()?.name }}</h1>
+            <p class="playlist-stats">
+              {{ trackRows().length }} tracks &bull; {{ totalDuration() }}
+            </p>
+
+            <div class="hero-actions">
+              <button
+                type="button"
+                class="btn-play"
+                (click)="onPlayAll()"
+                [disabled]="trackRows().length === 0"
+                aria-label="Play Playlist">
+                <app-icon name="play" [size]="18" />
+                Play Playlist
+              </button>
+
+              <button
+                type="button"
+                class="btn-action"
+                (click)="onShufflePlay()"
+                [disabled]="trackRows().length === 0"
+                aria-label="Shuffle Playlist">
+                <app-icon name="shuffle" [size]="16" />
+                Shuffle
+              </button>
+
+              <button
+                type="button"
+                class="btn-action"
+                (click)="showAddTracksModal.set(true)"
+                aria-label="Add Tracks">
+                <app-icon name="plus" [size]="16" />
+                Add Tracks
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <!-- Track Entries Table -->
+        <div class="table-card">
+          @if (trackRows().length === 0) {
+            <div class="empty-playlist">
+              <p>This playlist has no tracks yet.</p>
+              <button type="button" class="btn-action primary" (click)="showAddTracksModal.set(true)">
+                Add Songs Now
+              </button>
+            </div>
+          } @else {
+            <table class="playlist-table">
+              <thead>
+                <tr>
+                  <th class="col-reorder"><span class="sr-only">Order</span></th>
+                  <th class="col-num">#</th>
+                  <th class="col-title">Title</th>
+                  <th class="col-artist">Artist</th>
+                  <th class="col-duration">Time</th>
+                  <th class="col-actions"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of trackRows(); track row.entry.id; let i = $index) {
+                  <tr
+                    class="entry-row"
+                    [class.playing]="player.currentTrack()?.id === row.track.id"
+                    [class.unavailable]="!row.track.isAvailable"
+                    (dblclick)="onPlayRow(i)"
+                    tabindex="0"
+                    (keydown.enter)="onPlayRow(i)">
+                    <!-- Move Up / Down Buttons -->
+                    <td class="col-reorder" (click)="$event.stopPropagation()">
+                      <div class="reorder-btns">
+                        <button
+                          type="button"
+                          class="reorder-btn"
+                          [disabled]="i === 0"
+                          (click)="onMoveUp(i)"
+                          title="Move Up"
+                          aria-label="Move track up">
+                          <app-icon name="arrow-up" [size]="12" />
+                        </button>
+                        <button
+                          type="button"
+                          class="reorder-btn"
+                          [disabled]="i === trackRows().length - 1"
+                          (click)="onMoveDown(i)"
+                          title="Move Down"
+                          aria-label="Move track down">
+                          <app-icon name="arrow-down" [size]="12" />
+                        </button>
+                      </div>
+                    </td>
+
+                    <!-- Index -->
+                    <td class="col-num">
+                      @if (player.currentTrack()?.id === row.track.id) {
+                        <span class="playing-icon">
+                          <app-icon name="play" [size]="12" />
+                        </span>
+                      } @else {
+                        {{ i + 1 }}
+                      }
+                    </td>
+
+                    <!-- Title with Artwork -->
+                    <td class="col-title">
+                      <div class="title-cell">
+                        @if (row.track.artwork) {
+                          <img [src]="row.track.artwork" [alt]="row.track.title" class="thumb-img" />
+                        } @else {
+                          <div class="thumb-placeholder">
+                            <app-icon name="music" [size]="16" />
+                          </div>
+                        }
+                        <span class="track-title truncate" [title]="row.track.title">
+                          {{ row.track.title }}
+                        </span>
+                        @if (!row.track.isAvailable) {
+                          <span class="badge-unavailable">Unavailable</span>
+                        }
+                      </div>
+                    </td>
+
+                    <!-- Artist -->
+                    <td class="col-artist truncate" [title]="row.track.artist || 'Unknown Artist'">
+                      {{ row.track.artist || 'Unknown Artist' }}
+                    </td>
+
+                    <!-- Duration -->
+                    <td class="col-duration">
+                      {{ row.track.duration | duration }}
+                    </td>
+
+                    <!-- Remove from Playlist Action -->
+                    <td class="col-actions" (click)="$event.stopPropagation()">
+                      <button
+                        type="button"
+                        class="btn-remove-entry"
+                        (click)="onRemoveEntry(row.entry.id)"
+                        title="Remove from playlist"
+                        aria-label="Remove from playlist">
+                        <app-icon name="trash" [size]="14" />
+                      </button>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </div>
+      }
+
+      <!-- Add Tracks Modal Dialog -->
+      @if (showAddTracksModal()) {
+        <div class="modal-backdrop" (click)="showAddTracksModal.set(false)">
+          <div class="modal-card wide" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="addTracksTitle">
+            <h3 id="addTracksTitle">Add Songs to Playlist</h3>
+            <p class="modal-desc">Click any song from your library to add it:</p>
+
+            <div class="tracks-picker-list">
+              @for (t of allLibraryTracks(); track t.id) {
+                <div class="picker-row" (click)="onAddSingleTrack(t.id)">
+                  <div class="picker-info">
+                    <span class="picker-title truncate">{{ t.title }}</span>
+                    <span class="picker-artist truncate">{{ t.artist || 'Unknown Artist' }}</span>
+                  </div>
+                  <button type="button" class="btn-picker-add">Add +</button>
+                </div>
+              }
+            </div>
+
+            <div class="modal-actions">
+              <button type="button" class="btn-confirm" (click)="showAddTracksModal.set(false)">Done</button>
+            </div>
+          </div>
+        </div>
+      }
+    </div>

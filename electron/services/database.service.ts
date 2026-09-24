@@ -1,6 +1,6 @@
 import type { DatabaseSync as DatabaseSyncType } from 'node:sqlite';
 import path from 'node:path';
-import { Album, Artist, DEFAULT_ACCENT_COLOR, DEFAULT_THEME_PRESET, FolderNode, isAccentColor, isThemePreset, MusicFolder, orderAlbumTracks, Playlist, PlaylistEntry, Settings, Track } from '../../src/app/core/models/index.js';
+import { Album, Artist, ArtistMetadataSource, ArtistOnlineMetadata, DEFAULT_ACCENT_COLOR, DEFAULT_THEME_PRESET, FolderNode, isAccentColor, isThemePreset, MusicFolder, orderAlbumTracks, Playlist, PlaylistEntry, Settings, Track } from '../../src/app/core/models/index.js';
 import { LibrarySnapshot } from '../../src/app/core/contracts/library.gateway.js';
 import { pathKey, stableId } from '../utils/path-utils.js';
 
@@ -8,7 +8,27 @@ const { DatabaseSync } = await import('node:sqlite');
 
 type Row = Record<string, unknown>;
 
-export interface StoredTrack extends Track { artworkHash: string | null; }
+export interface StoredTrack extends Track { artworkHash: string | null; artworkSource?: 'embedded' | 'folder' | 'none' | null; }
+export interface StoredArtistMetadata {
+  artistId: string;
+  artistName: string;
+  musicBrainzId: string | null;
+  matchMode: 'automatic' | 'manual';
+  wikipediaOverrideUrl: string | null;
+  biography: string | null;
+  biographySourceUrl: string | null;
+  avatarHash: string | null;
+  avatarSourceUrl: string | null;
+  aboutImageHash: string | null;
+  aboutImageSourceUrl: string | null;
+  sources: ArtistMetadataSource[];
+  status: 'available' | 'not-found' | 'ambiguous' | 'error';
+  fetchedAt: number | null;
+  nextRetryAt: number;
+  lastError: string | null;
+  resolverVersion: number;
+  customAvatarHash: string | null;
+}
 
 export class DatabaseService {
   private readonly db: DatabaseSyncType;
@@ -33,7 +53,7 @@ export class DatabaseService {
         id TEXT PRIMARY KEY, path TEXT NOT NULL, path_key TEXT NOT NULL UNIQUE, file_name TEXT NOT NULL, title TEXT NOT NULL,
         artist TEXT, album_artist TEXT, album TEXT, genre TEXT, year INTEGER, track_number INTEGER, disc_number INTEGER,
         duration REAL NOT NULL, codec TEXT, bitrate INTEGER, sample_rate INTEGER, bit_depth INTEGER, channels INTEGER,
-        artwork_hash TEXT, file_size INTEGER, last_modified INTEGER, is_available INTEGER NOT NULL DEFAULT 1,
+        artwork_hash TEXT, artwork_source TEXT, file_size INTEGER, last_modified INTEGER, is_available INTEGER NOT NULL DEFAULT 1,
         FOREIGN KEY(artwork_hash) REFERENCES artworks(hash)
       );
       CREATE TABLE IF NOT EXISTS folder_tracks (folder_id TEXT NOT NULL, track_id TEXT NOT NULL, last_seen_scan TEXT NOT NULL, PRIMARY KEY(folder_id, track_id), FOREIGN KEY(folder_id) REFERENCES music_folders(id) ON DELETE CASCADE, FOREIGN KEY(track_id) REFERENCES tracks(id));
@@ -41,8 +61,24 @@ export class DatabaseService {
       CREATE TABLE IF NOT EXISTS playlist_entries (id TEXT PRIMARY KEY, playlist_id TEXT NOT NULL, track_id TEXT NOT NULL, position INTEGER NOT NULL, added_at INTEGER NOT NULL, FOREIGN KEY(playlist_id) REFERENCES playlists(id) ON DELETE CASCADE, FOREIGN KEY(track_id) REFERENCES tracks(id));
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS scan_runs (id TEXT PRIMARY KEY, folder_id TEXT NOT NULL, started_at INTEGER NOT NULL, finished_at INTEGER, status TEXT NOT NULL, warning_count INTEGER NOT NULL DEFAULT 0, FOREIGN KEY(folder_id) REFERENCES music_folders(id) ON DELETE CASCADE);
+      CREATE TABLE IF NOT EXISTS artist_metadata (
+        artist_id TEXT PRIMARY KEY, artist_name TEXT NOT NULL, musicbrainz_id TEXT, match_mode TEXT NOT NULL DEFAULT 'automatic',
+        wikipedia_override_url TEXT, biography TEXT, biography_source_url TEXT, avatar_hash TEXT, avatar_source_url TEXT,
+        about_image_hash TEXT, about_image_source_url TEXT, sources_json TEXT NOT NULL DEFAULT '[]', status TEXT NOT NULL,
+        fetched_at INTEGER, next_retry_at INTEGER NOT NULL DEFAULT 0, last_error TEXT,
+        resolver_version INTEGER NOT NULL DEFAULT 1, custom_avatar_hash TEXT REFERENCES artworks(hash),
+        FOREIGN KEY(avatar_hash) REFERENCES artworks(hash), FOREIGN KEY(about_image_hash) REFERENCES artworks(hash)
+      );
       INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (1, unixepoch('now') * 1000);
+      INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (2, unixepoch('now') * 1000);
       `);
+      const columns = new Set((this.db.prepare('PRAGMA table_info(artist_metadata)').all() as Row[]).map((row) => String(row['name'])));
+      if (!columns.has('resolver_version')) this.db.exec('ALTER TABLE artist_metadata ADD COLUMN resolver_version INTEGER NOT NULL DEFAULT 1');
+      if (!columns.has('custom_avatar_hash')) this.db.exec('ALTER TABLE artist_metadata ADD COLUMN custom_avatar_hash TEXT REFERENCES artworks(hash)');
+      this.db.exec("INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (3, unixepoch('now') * 1000)");
+      const trackColumns = new Set((this.db.prepare('PRAGMA table_info(tracks)').all() as Row[]).map((row) => String(row['name'])));
+      if (!trackColumns.has('artwork_source')) this.db.exec('ALTER TABLE tracks ADD COLUMN artwork_source TEXT');
+      this.db.exec("INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (4, unixepoch('now') * 1000)");
       this.db.exec('COMMIT');
     } catch (error) {
       this.db.exec('ROLLBACK');
@@ -86,6 +122,33 @@ export class DatabaseService {
     return row ? { path: String(row['path']), mime: String(row['mime']) } : null;
   }
 
+  getArtistMetadata(artistId: string): StoredArtistMetadata | null {
+    const row = this.db.prepare('SELECT * FROM artist_metadata WHERE artist_id=?').get(artistId) as Row | undefined;
+    return row ? mapArtistMetadata(row) : null;
+  }
+
+  setCustomArtistAvatar(artistId: string, hash: string | null): void {
+    this.db.prepare('UPDATE artist_metadata SET custom_avatar_hash=? WHERE artist_id=?').run(hash, artistId);
+  }
+
+  saveArtistMetadata(value: StoredArtistMetadata): void {
+    this.db.prepare(`INSERT INTO artist_metadata(
+      artist_id,artist_name,musicbrainz_id,match_mode,wikipedia_override_url,biography,biography_source_url,
+      avatar_hash,avatar_source_url,about_image_hash,about_image_source_url,sources_json,status,fetched_at,next_retry_at,last_error,resolver_version,custom_avatar_hash
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(artist_id) DO UPDATE SET
+      artist_name=excluded.artist_name,musicbrainz_id=excluded.musicbrainz_id,match_mode=excluded.match_mode,
+      wikipedia_override_url=excluded.wikipedia_override_url,biography=excluded.biography,biography_source_url=excluded.biography_source_url,
+      avatar_hash=excluded.avatar_hash,avatar_source_url=excluded.avatar_source_url,about_image_hash=excluded.about_image_hash,
+      about_image_source_url=excluded.about_image_source_url,sources_json=excluded.sources_json,status=excluded.status,
+      fetched_at=excluded.fetched_at,next_retry_at=excluded.next_retry_at,last_error=excluded.last_error,
+      resolver_version=excluded.resolver_version,custom_avatar_hash=artist_metadata.custom_avatar_hash`).run(
+      value.artistId, value.artistName, value.musicBrainzId, value.matchMode, value.wikipediaOverrideUrl,
+      value.biography, value.biographySourceUrl, value.avatarHash, value.avatarSourceUrl, value.aboutImageHash,
+      value.aboutImageSourceUrl, JSON.stringify(value.sources), value.status, value.fetchedAt, value.nextRetryAt, value.lastError,
+      value.resolverVersion, value.customAvatarHash,
+    );
+  }
+
   findTrackFingerprint(filePath: string): { fileSize: number | null; lastModified: number | null } | null {
     const row = this.db.prepare('SELECT file_size, last_modified FROM tracks WHERE path_key = ?').get(pathKey(filePath)) as Row | undefined;
     return row ? { fileSize: row['file_size'] == null ? null : Number(row['file_size']), lastModified: row['last_modified'] == null ? null : Number(row['last_modified']) } : null;
@@ -97,13 +160,13 @@ export class DatabaseService {
   }
 
   upsertTracks(folderId: string, scanId: string, tracks: StoredTrack[]): void {
-    const upsert = this.db.prepare(`INSERT INTO tracks(id,path,path_key,file_name,title,artist,album_artist,album,genre,year,track_number,disc_number,duration,codec,bitrate,sample_rate,bit_depth,channels,artwork_hash,file_size,last_modified,is_available)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
-      ON CONFLICT(id) DO UPDATE SET path=excluded.path,path_key=excluded.path_key,file_name=excluded.file_name,title=excluded.title,artist=excluded.artist,album_artist=excluded.album_artist,album=excluded.album,genre=excluded.genre,year=excluded.year,track_number=excluded.track_number,disc_number=excluded.disc_number,duration=excluded.duration,codec=excluded.codec,bitrate=excluded.bitrate,sample_rate=excluded.sample_rate,bit_depth=excluded.bit_depth,channels=excluded.channels,artwork_hash=excluded.artwork_hash,file_size=excluded.file_size,last_modified=excluded.last_modified,is_available=1`);
+    const upsert = this.db.prepare(`INSERT INTO tracks(id,path,path_key,file_name,title,artist,album_artist,album,genre,year,track_number,disc_number,duration,codec,bitrate,sample_rate,bit_depth,channels,artwork_hash,artwork_source,file_size,last_modified,is_available)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)
+      ON CONFLICT(id) DO UPDATE SET path=excluded.path,path_key=excluded.path_key,file_name=excluded.file_name,title=excluded.title,artist=excluded.artist,album_artist=excluded.album_artist,album=excluded.album,genre=excluded.genre,year=excluded.year,track_number=excluded.track_number,disc_number=excluded.disc_number,duration=excluded.duration,codec=excluded.codec,bitrate=excluded.bitrate,sample_rate=excluded.sample_rate,bit_depth=excluded.bit_depth,channels=excluded.channels,artwork_hash=excluded.artwork_hash,artwork_source=excluded.artwork_source,file_size=excluded.file_size,last_modified=excluded.last_modified,is_available=1`);
     const link = this.db.prepare('INSERT INTO folder_tracks(folder_id,track_id,last_seen_scan) VALUES(?,?,?) ON CONFLICT(folder_id,track_id) DO UPDATE SET last_seen_scan=excluded.last_seen_scan');
     this.transaction(() => {
       for (const track of tracks) {
-        upsert.run(track.id, track.path, pathKey(track.path), track.fileName, track.title, track.artist, track.albumArtist, track.album, track.genre, track.year, track.trackNumber, track.discNumber, track.duration, track.codec, track.bitrate, track.sampleRate, track.bitDepth, track.channels, track.artworkHash, track.fileSize, track.lastModified);
+        upsert.run(track.id, track.path, pathKey(track.path), track.fileName, track.title, track.artist, track.albumArtist, track.album, track.genre, track.year, track.trackNumber, track.discNumber, track.duration, track.codec, track.bitrate, track.sampleRate, track.bitDepth, track.channels, track.artworkHash, track.artworkSource ?? (track.artworkHash ? 'embedded' : 'none'), track.fileSize, track.lastModified);
         link.run(folderId, track.id, scanId);
       }
     });
@@ -112,6 +175,10 @@ export class DatabaseService {
   markExistingTrackSeen(folderId: string, scanId: string, track: StoredTrack): void {
     this.db.prepare('UPDATE tracks SET is_available=1 WHERE id=?').run(track.id);
     this.db.prepare('INSERT INTO folder_tracks(folder_id,track_id,last_seen_scan) VALUES(?,?,?) ON CONFLICT(folder_id,track_id) DO UPDATE SET last_seen_scan=excluded.last_seen_scan').run(folderId, track.id, scanId);
+  }
+
+  updateTrackArtwork(id: string, artworkHash: string | null, artworkSource: 'folder' | 'none'): void {
+    this.db.prepare('UPDATE tracks SET artwork_hash=?, artwork_source=? WHERE id=?').run(artworkHash, artworkSource, id);
   }
 
   saveDirectories(folderId: string, scanId: string, directories: Array<{ path: string; parentPath: string | null; name: string }>): void {
@@ -131,17 +198,30 @@ export class DatabaseService {
   failScan(scanId: string, warnings: number): void { this.db.prepare('UPDATE scan_runs SET finished_at=?, status=?, warning_count=? WHERE id=?').run(Date.now(), 'failed', warnings, scanId); }
 
   getLibrary(): LibrarySnapshot {
-    const tracks = (this.db.prepare('SELECT * FROM tracks ORDER BY title COLLATE NOCASE').all() as Row[]).map((row) => this.toPublicTrack(this.mapTrack(row)));
+    const storedTracks = (this.db.prepare('SELECT * FROM tracks ORDER BY title COLLATE NOCASE').all() as Row[]).map((row) => this.mapTrack(row));
+    const tracks = storedTracks.map((track) => this.toPublicTrack(track));
+    const artworkSources = new Map(storedTracks.map((track) => [track.id, track.artworkSource]));
     const albumMap = new Map<string, Album>();
+    const albumArtworkPriority = new Map<string, number>();
     const artistMap = new Map<string, Artist>();
     for (const track of tracks) {
       const artistName = track.albumArtist || track.artist || 'Unknown Artist';
       const artistId = stableId('artist', artistName.trim().toLocaleLowerCase());
       const albumTitle = track.album || 'Unknown Album';
       const albumId = stableId('album', `${albumTitle.trim().toLocaleLowerCase()}\0${artistName.trim().toLocaleLowerCase()}`);
-      const album = albumMap.get(albumId) ?? { id: albumId, title: albumTitle, artist: artistName, year: track.year, artwork: track.artwork, trackIds: [] };
-      album.trackIds.push(track.id); album.artwork ||= track.artwork; albumMap.set(albumId, album);
-      const artist = artistMap.get(artistId) ?? { id: artistId, name: artistName, albumIds: [], trackIds: [] };
+      const album = albumMap.get(albumId) ?? { id: albumId, title: albumTitle, artist: artistName, year: track.year, artwork: null, trackIds: [] };
+      album.trackIds.push(track.id);
+      const priority = track.artwork ? (artworkSources.get(track.id) === 'folder' ? 1 : 2) : 0;
+      if (priority > (albumArtworkPriority.get(albumId) ?? 0)) {
+        album.artwork = track.artwork;
+        albumArtworkPriority.set(albumId, priority);
+      }
+      albumMap.set(albumId, album);
+      let artist = artistMap.get(artistId);
+      if (!artist) {
+        const cached = this.getArtistMetadata(artistId);
+        artist = { id: artistId, name: artistName, albumIds: [], trackIds: [], onlineMetadata: this.toPublicArtistMetadata(cached), customAvatar: cached?.customAvatarHash ? `music://artwork/${cached.customAvatarHash}` : null };
+      }
       if (!artist.albumIds.includes(albumId)) artist.albumIds.push(albumId);
       artist.trackIds.push(track.id); artistMap.set(artistId, artist);
     }
@@ -207,12 +287,43 @@ export class DatabaseService {
   private requirePlaylist(id: string): Playlist { const playlist=this.listPlaylists().find((item)=>item.id===id); if(!playlist) throw new Error('Playlist not found'); return playlist; }
   private touchPlaylist(id: string): void { this.db.prepare('UPDATE playlists SET updated_at=? WHERE id=?').run(Date.now(),id); }
   private reindexPlaylist(id: string): void { const rows=this.db.prepare('SELECT id FROM playlist_entries WHERE playlist_id=? ORDER BY position').all(id) as Row[]; const update=this.db.prepare('UPDATE playlist_entries SET position=? WHERE id=?'); this.transaction(()=>rows.forEach((row,index)=>update.run(index,String(row['id'])))); this.touchPlaylist(id); }
-  private mapTrack(row: Row): StoredTrack { return { id:String(row['id']),path:String(row['path']),fileName:String(row['file_name']),title:String(row['title']),artist:nullableString(row['artist']),albumArtist:nullableString(row['album_artist']),album:nullableString(row['album']),genre:nullableString(row['genre']),year:nullableNumber(row['year']),trackNumber:nullableNumber(row['track_number']),discNumber:nullableNumber(row['disc_number']),duration:Number(row['duration']),codec:nullableString(row['codec']),bitrate:nullableNumber(row['bitrate']),sampleRate:nullableNumber(row['sample_rate']),bitDepth:nullableNumber(row['bit_depth']),channels:nullableNumber(row['channels']),artwork:null,fileSize:nullableNumber(row['file_size']),lastModified:nullableNumber(row['last_modified']),isAvailable:Boolean(row['is_available']),artworkHash:nullableString(row['artwork_hash']) }; }
-  private toPublicTrack(track: StoredTrack): Track { const { artworkHash, ...value }=track; return { ...value, artwork: artworkHash ? `music://artwork/${artworkHash}` : null }; }
+  private mapTrack(row: Row): StoredTrack { return { id:String(row['id']),path:String(row['path']),fileName:String(row['file_name']),title:String(row['title']),artist:nullableString(row['artist']),albumArtist:nullableString(row['album_artist']),album:nullableString(row['album']),genre:nullableString(row['genre']),year:nullableNumber(row['year']),trackNumber:nullableNumber(row['track_number']),discNumber:nullableNumber(row['disc_number']),duration:Number(row['duration']),codec:nullableString(row['codec']),bitrate:nullableNumber(row['bitrate']),sampleRate:nullableNumber(row['sample_rate']),bitDepth:nullableNumber(row['bit_depth']),channels:nullableNumber(row['channels']),artwork:null,fileSize:nullableNumber(row['file_size']),lastModified:nullableNumber(row['last_modified']),isAvailable:Boolean(row['is_available']),artworkHash:nullableString(row['artwork_hash']),artworkSource:nullableString(row['artwork_source']) as StoredTrack['artworkSource'] }; }
+  private toPublicTrack(track: StoredTrack): Track { const { artworkHash, artworkSource, ...value }=track; return { ...value, artwork: artworkHash ? `music://artwork/${artworkHash}` : null }; }
+  private toPublicArtistMetadata(value: StoredArtistMetadata | null): ArtistOnlineMetadata | null {
+    if (!value?.musicBrainzId || value.status !== 'available' || value.fetchedAt === null) return null;
+    return {
+      musicBrainzId: value.musicBrainzId,
+      matchMode: value.matchMode,
+      biography: value.biography,
+      biographySourceUrl: value.biographySourceUrl,
+      avatar: value.avatarHash ? `music://artwork/${value.avatarHash}` : null,
+      avatarSourceUrl: value.avatarSourceUrl,
+      aboutImage: value.aboutImageHash ? `music://artwork/${value.aboutImageHash}` : null,
+      aboutImageSourceUrl: value.aboutImageSourceUrl,
+      sources: value.sources,
+      fetchedAt: value.fetchedAt,
+    };
+  }
   private transaction(callback:()=>void): void { this.db.exec('BEGIN IMMEDIATE'); try { callback(); this.db.exec('COMMIT'); } catch(error) { this.db.exec('ROLLBACK'); throw error; } }
 }
 
 function nullableString(value: unknown): string | null { return value == null ? null : String(value); }
 function nullableNumber(value: unknown): number | null { return value == null ? null : Number(value); }
 function mapPlaylistEntry(row: Row): PlaylistEntry { return { id:String(row['id']),trackId:String(row['track_id']),addedAt:Number(row['added_at']) }; }
+function mapArtistMetadata(row: Row): StoredArtistMetadata {
+  let sources: ArtistMetadataSource[] = [];
+  try { sources = JSON.parse(String(row['sources_json'])) as ArtistMetadataSource[]; } catch { sources = []; }
+  return {
+    artistId: String(row['artist_id']), artistName: String(row['artist_name']),
+    musicBrainzId: nullableString(row['musicbrainz_id']), matchMode: row['match_mode'] === 'manual' ? 'manual' : 'automatic',
+    wikipediaOverrideUrl: nullableString(row['wikipedia_override_url']), biography: nullableString(row['biography']),
+    biographySourceUrl: nullableString(row['biography_source_url']), avatarHash: nullableString(row['avatar_hash']),
+    avatarSourceUrl: nullableString(row['avatar_source_url']), aboutImageHash: nullableString(row['about_image_hash']),
+    aboutImageSourceUrl: nullableString(row['about_image_source_url']), sources,
+    status: isMetadataStatus(row['status']) ? row['status'] : 'error', fetchedAt: nullableNumber(row['fetched_at']),
+    nextRetryAt: Number(row['next_retry_at']), lastError: nullableString(row['last_error']),
+    resolverVersion: Number(row['resolver_version'] ?? 1), customAvatarHash: nullableString(row['custom_avatar_hash']),
+  };
+}
+function isMetadataStatus(value: unknown): value is StoredArtistMetadata['status'] { return ['available','not-found','ambiguous','error'].includes(String(value)); }
 function codecMime(codec: string | null): string | null { const value=codec?.toLowerCase() ?? ''; if(value.includes('flac')) return 'audio/flac'; if(value.includes('mpeg')||value.includes('mp3')) return 'audio/mpeg'; if(value.includes('wav')||value.includes('pcm')) return 'audio/wav'; if(value.includes('aac')||value.includes('m4a')) return 'audio/mp4'; if(value.includes('opus')) return 'audio/ogg'; if(value.includes('vorbis')||value.includes('ogg')) return 'audio/ogg'; return null; }

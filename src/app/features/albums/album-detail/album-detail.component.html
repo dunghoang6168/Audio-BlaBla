@@ -1,0 +1,134 @@
+
+    <div class="album-detail-page">
+      <nav class="breadcrumb">
+        <a routerLink="/albums" class="back-link">
+          <app-icon name="chevron-left" [size]="16" />
+          Back to Albums
+        </a>
+      </nav>
+
+      @if (isLoading()) {
+        <div class="state-loading">
+          <div class="spinner"></div>
+          <p>Loading album details...</p>
+        </div>
+      } @else if (!album()) {
+        <div class="state-empty">
+          <h2>Album Not Found</h2>
+          <p>The requested album could not be found in your music library.</p>
+          <a routerLink="/albums" class="btn-back">Browse Albums</a>
+        </div>
+      } @else {
+        <!-- Album Header Hero -->
+        <header class="album-hero">
+          <div class="hero-artwork-wrapper">
+            @if (album()?.artwork) {
+              <img [src]="album()?.artwork" [alt]="album()?.title" class="hero-artwork-img" />
+            } @else {
+              <div class="hero-artwork-placeholder" aria-hidden="true">
+                <app-icon name="disc" [size]="64" />
+              </div>
+            }
+          </div>
+
+          <div class="hero-info">
+            <span class="type-tag">ALBUM</span>
+            <h1 class="album-title">{{ album()?.title }}</h1>
+
+            <div class="album-meta-row">
+              <span class="artist-name">{{ album()?.artist || 'Unknown Artist' }}</span>
+              <span class="dot">•</span>
+              <span class="album-year">{{ album()?.year || 'Unknown Year' }}</span>
+              <span class="dot">•</span>
+              <span>{{ albumTracks().length }} tracks, {{ totalDuration() }}</span>
+            </div>
+
+            <div class="hero-actions">
+              <button
+                type="button"
+                class="btn-play"
+                (click)="onPlayAll()"
+                [disabled]="albumTracks().length === 0"
+                aria-label="Play Album">
+                <app-icon name="play" [size]="18" />
+                Play Album
+              </button>
+
+              <button
+                type="button"
+                class="btn-shuffle"
+                (click)="onShufflePlay()"
+                [disabled]="albumTracks().length === 0"
+                aria-label="Shuffle Album">
+                <app-icon name="shuffle" [size]="16" />
+                Shuffle
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <!-- Disc Groups & Track List -->
+        <div class="tracklist-container">
+          @for (group of discGroups(); track group.discNumber) {
+            <div class="disc-section">
+              @if (discGroups().length > 1) {
+                <div class="disc-header">
+                  <app-icon name="disc" [size]="16" />
+                  <span>Disc {{ group.discNumber }}</span>
+                </div>
+              }
+
+              <table class="tracks-table">
+                <thead>
+                  <tr>
+                    <th class="col-num">#</th>
+                    <th class="col-title">Title</th>
+                    <th class="col-duration">Time</th>
+                    <th class="col-spec">Quality</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (track of group.tracks; track track.id; let i = $index) {
+                    <tr
+                      class="track-row"
+                      [class.playing]="player.currentTrack()?.id === track.id"
+                      [class.unavailable]="!track.isAvailable"
+                      (dblclick)="onPlayTrack(track)"
+                      (keydown.enter)="onPlayTrack(track)"
+                      tabindex="0">
+                      <td class="col-num">
+                        @if (player.currentTrack()?.id === track.id) {
+                          <span class="playing-icon">
+                            <app-icon name="play" [size]="12" />
+                          </span>
+                        } @else {
+                          {{ track.trackNumber || i + 1 }}
+                        }
+                      </td>
+
+                      <td class="col-title">
+                        <span class="track-title" [title]="track.title">{{ track.title }}</span>
+                        @if (!track.isAvailable) {
+                          <span class="badge-unavailable">Unavailable</span>
+                        }
+                      </td>
+
+                      <td class="col-duration">
+                        {{ track.duration | duration }}
+                      </td>
+
+                      <td class="col-spec">
+                        <span class="spec-tag">{{ track.codec }}</span>
+                        @if (track.sampleRate) {
+                          <span class="spec-detail">{{ track.sampleRate / 1000 }} kHz</span>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+    </div>

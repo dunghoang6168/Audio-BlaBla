@@ -1,0 +1,231 @@
+
+    .playlists-page {
+      padding: var(--space-6);
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--space-6);
+    }
+
+    .title-group h1 { font-size: var(--font-size-2xl); font-weight: 700; }
+    .count-badge { font-size: var(--font-size-xs); color: var(--text-muted); }
+
+    .btn-create {
+      height: 36px;
+      padding: 0 var(--space-4);
+      background: var(--accent-primary);
+      color: #ffffff;
+      border-radius: var(--radius-md);
+      font-weight: 600;
+      font-size: var(--font-size-sm);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      transition: background var(--transition-fast);
+    }
+
+    .btn-create:hover { background: var(--accent-hover); }
+
+    .playlists-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: var(--space-4);
+    }
+
+    .playlist-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-4);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+      user-select: none;
+    }
+
+    .playlist-card:hover {
+      background: var(--bg-surface-hover);
+      transform: translateY(-3px);
+      border-color: var(--color-accent-glow);
+    }
+
+    .playlist-icon-box {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #1e1b4b, #31102f);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-primary);
+      margin-bottom: var(--space-3);
+      position: relative;
+    }
+
+    .quick-play-btn {
+      position: absolute;
+      bottom: var(--space-2);
+      right: var(--space-2);
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-full);
+      background: var(--accent-primary);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px var(--accent-glow);
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity var(--transition-fast), transform var(--transition-fast);
+    }
+
+    .playlist-card:hover .quick-play-btn {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .playlist-name {
+      font-size: var(--font-size-base);
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .playlist-stats {
+      font-size: var(--font-size-xs);
+      color: var(--text-muted);
+      margin-top: 2px;
+      display: block;
+    }
+
+    .card-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-1);
+      margin-top: var(--space-3);
+      justify-content: flex-end;
+    }
+
+    .btn-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      transition: color var(--transition-fast), background var(--transition-fast);
+    }
+
+    .btn-icon:hover {
+      color: var(--text-primary);
+      background: var(--bg-surface-active);
+    }
+
+    .btn-icon.delete:hover {
+      color: var(--status-error);
+    }
+
+    /* Modals */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      padding: var(--space-4);
+    }
+
+    .modal-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      padding: var(--space-6);
+      width: 100%;
+      max-width: 420px;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .modal-card h3 { font-size: var(--font-size-lg); font-weight: 700; margin-bottom: var(--space-2); }
+    .modal-desc { font-size: var(--font-size-sm); color: var(--text-secondary); margin-bottom: var(--space-4); }
+
+    .modal-input {
+      width: 100%;
+      height: 38px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 0 var(--space-3);
+      color: var(--text-primary);
+      margin-bottom: var(--space-6);
+    }
+
+    .safe-note {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--status-success);
+      color: #6ee7b7;
+      padding: var(--space-3);
+      border-radius: var(--radius-md);
+      font-size: var(--font-size-xs);
+      margin-bottom: var(--space-6);
+    }
+
+    .btn-cancel {
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-md);
+      background: var(--bg-elevated);
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .btn-confirm {
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-md);
+      background: var(--accent-primary);
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .btn-danger {
+      padding: var(--space-2) var(--space-4);
+      border-radius: var(--radius-md);
+      background: var(--status-error);
+      color: #ffffff;
+      font-weight: 600;
+    }
+
+    .state-error svg {
+      stroke: var(--status-error);
+      margin-bottom: var(--space-3);
+    }
+
+    .error-title {
+      font-size: var(--font-size-base);
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--space-1);
+    }
+
+    .error-desc {
+      font-size: var(--font-size-sm);
+      color: var(--status-error);
+      margin-bottom: var(--space-4);
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--accent-primary);
+      border-radius: 50%;
+      animation: spin 800ms linear infinite;
+      margin: 0 auto var(--space-3);
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }

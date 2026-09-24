@@ -1,0 +1,213 @@
+
+    <div class="artist-detail-page">
+      <nav class="breadcrumb">
+        <a routerLink="/artists" class="back-link">
+          <app-icon name="chevron-left" [size]="16" />
+          Back to Artists
+        </a>
+      </nav>
+
+      @if (isLoading()) {
+        <div class="state-loading">
+          <div class="spinner"></div>
+          <p>Loading artist profile...</p>
+        </div>
+      } @else if (!artist()) {
+        <div class="state-empty">
+          <h2>Artist Not Found</h2>
+          <p>The requested artist was not found in your library.</p>
+          <a routerLink="/artists" class="btn-back">Browse Artists</a>
+        </div>
+      } @else {
+        <!-- Artist Hero -->
+        <header class="artist-hero">
+          <div class="artist-avatar">
+            @if (heroAvatar(); as avatar) {
+              <img class="artist-avatar-img" [src]="avatar" [alt]="avatar === artist()?.customAvatar || avatar === artist()?.onlineMetadata?.avatar ? (artist()?.name || 'Artist') : 'Album artwork for ' + artist()?.name" (error)="onAvatarError()" />
+            } @else {
+              <span class="initial">{{ artist()?.name?.charAt(0) }}</span>
+            }
+          </div>
+
+          <div class="hero-info">
+            <span class="type-tag">ARTIST</span>
+            <h1 class="artist-name">{{ artist()?.name }}</h1>
+            <p class="artist-stats">
+              {{ artistAlbums().length }} {{ artistAlbums().length === 1 ? 'Album' : 'Albums' }} •
+              {{ artistTracks().length }} Tracks
+            </p>
+
+            <div class="hero-actions">
+              <button
+                type="button"
+                class="btn-play"
+                (click)="onPlayAll()"
+                [disabled]="artistTracks().length === 0"
+                aria-label="Play All Songs">
+                <app-icon name="play" [size]="18" />
+                Play All Songs
+              </button>
+              @if (!hasAboutContent()) {
+                <button type="button" class="btn btn-secondary" (click)="openMetadataEditor()">Edit online info</button>
+                @if (metadataStatus() === 'error' || metadataStatus() === 'not-found' || metadataStatus() === 'ambiguous') {
+                  <button type="button" class="btn btn-secondary" (click)="retryMetadata()">Retry info</button>
+                }
+              }
+            </div>
+          </div>
+        </header>
+
+        <!-- Discography / Albums Section -->
+        @if (artistAlbums().length > 0) {
+          <section class="section-albums">
+            <h2 class="section-title">Albums</h2>
+            <div class="albums-grid">
+              @for (album of artistAlbums(); track album.id) {
+                <div class="album-card" [routerLink]="['/albums', album.id]" tabindex="0" role="button">
+                  <div class="cover-box">
+                    @if (album.artwork) {
+                      <img [src]="album.artwork" [alt]="album.title" class="cover-img" />
+                    } @else {
+                      <div class="cover-placeholder" aria-hidden="true">
+                        <app-icon name="disc" [size]="32" />
+                      </div>
+                    }
+                    <button
+                      type="button"
+                      class="quick-play-btn"
+                      (click)="onPlayAlbum($event, album)"
+                      [title]="'Play ' + album.title"
+                      [attr.aria-label]="'Play ' + album.title">
+                      <app-icon name="play" [size]="18" />
+                    </button>
+                  </div>
+                  <h4 class="album-title truncate" [title]="album.title">{{ album.title }}</h4>
+                  <span class="album-year">{{ album.year || 'Unknown Year' }}</span>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        @if (hasAboutContent()) {
+        <section class="section-about" aria-labelledby="aboutArtistTitle">
+          <div class="about-heading">
+            <h2 id="aboutArtistTitle" class="section-title">About</h2>
+            <button type="button" class="btn btn-secondary btn-edit-metadata" (click)="openMetadataEditor()">Edit online info</button>
+          </div>
+          <div class="about-card card-base">
+            @if (artist()?.onlineMetadata; as metadata) {
+              @if (metadata.aboutImage && !aboutImageFailed()) {
+                <img class="about-image" [src]="metadata.aboutImage" [alt]="artist()?.name + ' artist image'" (error)="aboutImageFailed.set(true)" />
+              }
+              <div class="about-content">
+                @if (metadata.biography) {
+                  <p class="about-biography" [class.expanded]="biographyExpanded()">{{ metadata.biography }}</p>
+                  @if (metadata.biography.length > 320) {
+                    <button type="button" class="about-toggle" (click)="biographyExpanded.set(!biographyExpanded())">
+                      {{ biographyExpanded() ? 'Show less' : 'Show more' }}
+                    </button>
+                  }
+                } @else {
+                  <p class="about-message">No biography is available for this artist.</p>
+                }
+                <div class="about-sources" aria-label="Metadata sources">
+                  <span>Sources:</span>
+                  @for (source of sourceLinks(); track source.url) {
+                    <button type="button" (click)="openSource(source.url)">{{ source.label }}</button>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </section>
+        }
+
+        <!-- Songs Section -->
+        <section class="section-songs">
+          <h2 class="section-title">Songs ({{ artistTracks().length }})</h2>
+          <div class="tracks-card">
+            <table class="tracks-table">
+              <thead>
+                <tr>
+                  <th class="col-num">#</th>
+                  <th class="col-title">Title</th>
+                  <th class="col-album">Album</th>
+                  <th class="col-duration">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (track of artistTracks(); track track.id; let i = $index) {
+                  <tr
+                    class="track-row"
+                    [class.playing]="player.currentTrack()?.id === track.id"
+                    [class.unavailable]="!track.isAvailable"
+                    (dblclick)="onPlayTrack(track, i)"
+                    tabindex="0"
+                    (keydown.enter)="onPlayTrack(track, i)">
+                    <td class="col-num">
+                      @if (player.currentTrack()?.id === track.id) {
+                        <span class="playing-icon">
+                          <app-icon name="play" [size]="12" />
+                        </span>
+                      } @else {
+                        {{ i + 1 }}
+                      }
+                    </td>
+                    <td class="col-title">
+                      <span class="track-title truncate" [title]="track.title">{{ track.title }}</span>
+                      @if (!track.isAvailable) {
+                        <span class="badge-unavailable">Unavailable</span>
+                      }
+                    </td>
+                    <td class="col-album truncate" [title]="track.album || 'Unknown'">
+                      {{ track.album || '—' }}
+                    </td>
+                    <td class="col-duration">
+                      {{ track.duration | duration }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+    </div>
+
+    @if (showMetadataEditor()) {
+      <div class="metadata-modal-backdrop" (click)="closeMetadataEditor()">
+        <div class="metadata-modal-card" role="dialog" aria-modal="true" aria-labelledby="metadataEditorTitle" tabindex="-1" (click)="$event.stopPropagation()" (keydown)="onEditorKeydown($event)">
+          <div class="metadata-modal-header">
+            <div><h2 id="metadataEditorTitle">Edit online artist info</h2><p>Choose the correct MusicBrainz profile and optionally provide an English Wikipedia page.</p></div>
+            <button type="button" class="btn-icon" (click)="closeMetadataEditor()" aria-label="Close artist metadata editor"><app-icon name="x" [size]="18" /></button>
+          </div>
+          <form (ngSubmit)="searchMetadataCandidates()" class="candidate-search">
+            <input type="search" name="candidateQuery" [ngModel]="candidateQuery()" (ngModelChange)="candidateQuery.set($event)" aria-label="Search MusicBrainz artists" />
+            <button type="submit" class="btn btn-secondary" [disabled]="editorLoading()">Search</button>
+          </form>
+          <div class="candidate-list" role="radiogroup" aria-label="MusicBrainz matches">
+            @if (editorLoading() && candidates().length === 0) { <p class="candidate-message">Searching…</p> }
+            @for (candidate of candidates(); track candidate.musicBrainzId) {
+              <button type="button" class="candidate-row" role="radio" [attr.aria-checked]="selectedCandidateId() === candidate.musicBrainzId" [class.selected]="selectedCandidateId() === candidate.musicBrainzId" (click)="selectedCandidateId.set(candidate.musicBrainzId)">
+                <span class="candidate-name">{{ candidate.name }}</span>
+                <span class="candidate-meta">{{ candidate.type || 'Artist' }} · {{ candidate.country || 'Unknown country' }} · Match {{ candidate.score }}%</span>
+                @if (candidate.disambiguation) { <span class="candidate-description">{{ candidate.disambiguation }}</span> }
+              </button>
+            } @empty { @if (!editorLoading()) { <p class="candidate-message">No MusicBrainz matches found.</p> } }
+          </div>
+          <label class="wikipedia-field">English Wikipedia URL (optional)
+            <input type="url" [ngModel]="wikipediaOverride()" (ngModelChange)="wikipediaOverride.set($event)" name="wikipediaOverride" placeholder="https://en.wikipedia.org/wiki/..." />
+          </label>
+          <div class="custom-avatar-actions">
+            <button type="button" class="btn btn-secondary" (click)="chooseCustomAvatar()">Choose image from computer</button>
+            @if (artist()?.customAvatar) { <button type="button" class="btn btn-secondary" (click)="removeCustomAvatar()">Remove custom image</button> }
+          </div>
+          @if (editorError()) { <p class="editor-error" role="alert">{{ editorError() }}</p> }
+          <div class="metadata-modal-actions">
+            <button type="button" class="btn btn-secondary" (click)="closeMetadataEditor()">Cancel</button>
+            <button type="button" class="btn btn-primary" [disabled]="!selectedCandidateId() || editorLoading()" (click)="saveMetadataMatch()">Save match</button>
+          </div>
+        </div>
+      </div>
+    }

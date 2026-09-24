@@ -1,0 +1,187 @@
+
+    <div class="now-playing-page">
+      @if (player.currentTrack(); as track) {
+        <div class="now-playing-content">
+          <!-- Left Column: Big Cover Artwork -->
+          <div class="artwork-column">
+            <div class="large-artwork-card">
+              @if (track.artwork) {
+                <img [src]="track.artwork" [alt]="track.title" class="large-artwork-img" />
+              } @else {
+                <div class="large-artwork-placeholder" aria-hidden="true">
+                  <app-icon name="disc" [size]="80" />
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Right Column: Metadata & Technical Audio Specs -->
+          <div class="details-column">
+            <!-- Title & Artist -->
+            <h1 class="track-title" [title]="track.title">{{ track.title }}</h1>
+            <div class="artist-album-row">
+              <span class="track-artist">{{ track.artist || 'Unknown Artist' }}</span>
+              @if (track.album) {
+                <span class="dot-separator">•</span>
+                <span class="track-album">{{ track.album }}</span>
+              }
+              @if (track.year) {
+                <span class="dot-separator">•</span>
+                <span class="track-year">{{ track.year }}</span>
+              }
+              @if (track.genre) {
+                <span class="dot-separator">•</span>
+                <span class="track-genre">{{ track.genre }}</span>
+              }
+            </div>
+
+            <app-spectrum-visualizer />
+
+            <!-- Embedded Timeline & Controls -->
+            <div class="inline-controls">
+              <div class="timeline-group">
+                <span class="time-label">{{ player.currentTime() | duration }}</span>
+                <div
+                  class="timeline-bar-wrap"
+                  (pointerdown)="onTimelinePointerDown($event)"
+                  (pointermove)="onTimelinePointerMove($event)"
+                  (pointerup)="onTimelinePointerUp($event)"
+                  (pointercancel)="onTimelinePointerCancel($event)"
+                  (keydown)="onTimelineKeyDown($event)"
+                  role="slider"
+                  [attr.tabindex]="player.currentTrack() && player.duration() > 0 ? 0 : -1"
+                  [attr.aria-disabled]="!player.currentTrack() || player.duration() <= 0"
+                  [attr.aria-valuenow]="player.currentTime()"
+                  [attr.aria-valuemin]="0"
+                  [attr.aria-valuemax]="player.duration()"
+                  aria-label="Timeline scrubber">
+                  <div class="timeline-track">
+                    <div class="timeline-fill" [style.width.%]="player.progressPercent()"></div>
+                  </div>
+                </div>
+                <span class="time-label">{{ player.duration() | duration }}</span>
+              </div>
+
+              <div class="transport-buttons">
+                <button
+                  type="button"
+                  class="btn-icon"
+                  [class.active]="player.isShuffle()"
+                  (click)="player.toggleShuffle()"
+                  title="Toggle Shuffle"
+                  aria-label="Toggle Shuffle">
+                  <app-icon name="shuffle" [size]="18" />
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-icon"
+                  (click)="player.previous()"
+                  title="Previous Track"
+                  aria-label="Previous Track">
+                  <app-icon name="skip-back" [size]="20" />
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-play-large"
+                  (click)="player.togglePlayPause()"
+                  [title]="player.isPlaybackActive() ? 'Pause' : 'Play'"
+                  aria-label="Play or Pause">
+                  @if (player.isPlaybackActive()) {
+                    <app-icon name="pause" [size]="24" />
+                  } @else {
+                    <app-icon name="play" [size]="24" />
+                  }
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-icon"
+                  (click)="player.next()"
+                  title="Next Track"
+                  aria-label="Next Track">
+                  <app-icon name="skip-forward" [size]="20" />
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-icon"
+                  [class.active]="player.repeatMode() !== 'off'"
+                  (click)="player.cycleRepeatMode()"
+                  [title]="'Repeat Mode: ' + player.repeatMode()"
+                  aria-label="Toggle Repeat Mode">
+                  <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="18" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Technical Audio Specification Box (Source Quality) -->
+            <button
+              #detailsTrigger
+              type="button"
+              class="technical-specs-card"
+              [class.hidden-while-details-open]="rightPanels.isTrackDetailsOpen()"
+              (click)="openTrackDetails($event)"
+              aria-controls="track-details-panel"
+              [attr.aria-expanded]="rightPanels.isTrackDetailsOpen()"
+              title="View detailed source-file metadata">
+              <span class="specs-header">
+                <span>
+                  <span class="specs-title">Technical Audio Specifications (Source File)</span>
+                  <span class="specs-disclaimer">
+                    Verified metadata of the file on disk. (Does not claim DAC hardware output).
+                  </span>
+                </span>
+                <span class="details-affordance">
+                  <span>View details</span>
+                  <app-icon name="chevron-right" [size]="16" />
+                </span>
+              </span>
+
+              <span class="specs-grid">
+                <span class="spec-item">
+                  <span class="spec-name">Codec</span>
+                  <span class="spec-value">{{ track.codec || 'Unknown' }}</span>
+                </span>
+                <span class="spec-item">
+                  <span class="spec-name">Bit Depth</span>
+                  <span class="spec-value">{{ track.bitDepth ? track.bitDepth + '-bit' : 'N/A' }}</span>
+                </span>
+                <span class="spec-item">
+                  <span class="spec-name">Sample Rate</span>
+                  <span class="spec-value">{{ track.sampleRate ? (track.sampleRate | number) + ' Hz (' + (track.sampleRate / 1000) + ' kHz)' : 'N/A' }}</span>
+                </span>
+                <span class="spec-item">
+                  <span class="spec-name">Bitrate</span>
+                  <span class="spec-value">{{ track.bitrate ? (track.bitrate / 1000 | number:'1.0-0') + ' kbps' : 'N/A' }}</span>
+                </span>
+                <span class="spec-item">
+                  <span class="spec-name">Channels</span>
+                  <span class="spec-value">{{ track.channels === 2 ? 'Stereo (2 Ch)' : track.channels === 1 ? 'Mono' : track.channels ? track.channels + ' Ch' : 'N/A' }}</span>
+                </span>
+                <span class="spec-item">
+                  <span class="spec-name">File Size</span>
+                  <span class="spec-value">{{ formatFileSize(track.fileSize) }}</span>
+                </span>
+              </span>
+
+              <span class="file-path-row">
+                <span class="path-label">Path:</span>
+                <span class="path-value truncate" [title]="track.path">{{ track.path }}</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+      } @else {
+        <div class="empty-screen">
+          <div class="empty-icon-circle">
+            <app-icon name="disc" [size]="48" />
+          </div>
+          <h2>Nothing is Currently Playing</h2>
+          <p>Choose a track from your library or start a playlist to enjoy your music.</p>
+          <a routerLink="/songs" class="btn-browse">Browse Songs</a>
+        </div>
+      }
+    </div>

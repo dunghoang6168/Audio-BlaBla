@@ -5,71 +5,14 @@ import { ThemeService } from '../../../core/theme/theme.service';
 import { FrequencyBand, createLogFrequencyBands, decaySpectrumLevels, updateSpectrumLevels } from './spectrum-utils';
 
 const BAR_COUNT = 48;
+const CANVAS_RESIZE_DEBOUNCE_MS = 120;
 
 @Component({
   selector: 'app-spectrum-visualizer',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="spectrum-panel" aria-hidden="true">
-      <span class="spectrum-label">REAL-TIME SPECTRUM</span>
-      <canvas #canvas></canvas>
-    </div>
-  `,
-  styles: [`
-    :host {
-      display: block;
-      margin-bottom: var(--space-6);
-    }
-
-    :host([hidden]) {
-      display: none;
-    }
-
-    .spectrum-panel {
-      position: relative;
-      height: 128px;
-      overflow: hidden;
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      background:
-        linear-gradient(180deg, transparent, var(--accent-muted)),
-        var(--bg-surface);
-    }
-
-    .spectrum-label {
-      position: absolute;
-      top: var(--space-2);
-      left: var(--space-3);
-      z-index: 1;
-      color: var(--text-muted);
-      font-family: var(--font-family-mono);
-      font-size: 9px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      pointer-events: none;
-    }
-
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-
-    @media (max-width: 960px), (max-height: 700px) {
-      :host {
-        margin-bottom: var(--space-4);
-      }
-
-      .spectrum-panel {
-        height: 80px;
-      }
-
-      .spectrum-label {
-        top: 6px;
-      }
-    }
-  `],
+  templateUrl: './spectrum-visualizer.component.html',
+  styleUrl: './spectrum-visualizer.component.scss',
 })
 export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
   @ViewChild('canvas', { static: true }) private readonly canvasRef!: ElementRef<HTMLCanvasElement>;
@@ -85,6 +28,7 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
   private bands: FrequencyBand[] = [];
   private frameId: number | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  private resizeDebounceId: number | null = null;
   private preparing: Promise<boolean> | null = null;
   private context: CanvasRenderingContext2D | null = null;
   private viewReady = false;
@@ -114,11 +58,10 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
     this.readThemeColors();
     this.resizeCanvas();
     if (typeof ResizeObserver === 'function') {
-      this.resizeObserver = new ResizeObserver(() => {
-        this.resizeCanvas();
-        this.draw();
+      this.zone.runOutsideAngular(() => {
+        this.resizeObserver = new ResizeObserver(() => this.scheduleCanvasResize());
+        this.resizeObserver.observe(this.canvasRef.nativeElement);
       });
-      this.resizeObserver.observe(this.canvasRef.nativeElement);
     }
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     this.reducedMotion.addEventListener('change', this.onMotionPreferenceChange);
@@ -128,6 +71,7 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroyed = true;
     this.stopLoop();
+    this.cancelCanvasResize();
     this.resizeObserver?.disconnect();
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.reducedMotion.removeEventListener('change', this.onMotionPreferenceChange);
@@ -217,6 +161,22 @@ export class SpectrumVisualizerComponent implements AfterViewInit, OnDestroy {
     canvas.width = Math.max(1, Math.round(rect.width * ratio));
     canvas.height = Math.max(1, Math.round(rect.height * ratio));
     this.context?.setTransform(ratio, 0, 0, ratio, 0, 0);
+  }
+
+  private scheduleCanvasResize(): void {
+    this.cancelCanvasResize();
+    this.resizeDebounceId = window.setTimeout(() => {
+      this.resizeDebounceId = null;
+      if (this.destroyed) return;
+      this.resizeCanvas();
+      this.draw();
+    }, CANVAS_RESIZE_DEBOUNCE_MS);
+  }
+
+  private cancelCanvasResize(): void {
+    if (this.resizeDebounceId === null) return;
+    window.clearTimeout(this.resizeDebounceId);
+    this.resizeDebounceId = null;
   }
 
   private draw(): void {

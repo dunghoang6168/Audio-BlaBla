@@ -1,17 +1,29 @@
-import { dialog, ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
+import { dialog, ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
 import { MusicFolder, ScanProgress } from '../../src/app/core/models/index.js';
 import { canonicalPath, pathsOverlap } from '../utils/path-utils.js';
 import { DatabaseService } from '../services/database.service.js';
 import { ScannerService } from '../services/scanner.service.js';
+import { TrackDetailsService } from '../services/track-details.service.js';
+import { ArtistMetadataService } from '../services/artist-metadata.service.js';
 import { validSettings } from './settings-validation.js';
+import { validArtistSourceUrl, validId, validIdArray, validMusicBrainzId, validName, validTitleBarAppearance, validWikipediaOverride } from './ipc-validation.js';
 
-const ID_PATTERN = /^[a-z]+-[a-f0-9]{64}$/;
-
-export function registerIpc(database: DatabaseService, scanner: ScannerService, getWindow: () => BrowserWindow | null, development: boolean): void {
+export function registerIpc(database: DatabaseService, scanner: ScannerService, trackDetails: TrackDetailsService, artistMetadata: ArtistMetadataService, getWindow: () => BrowserWindow | null, development: boolean): void {
   handle('system:ping', () => 'pong', development);
+  handle('window:set-title-bar-appearance', (_event, mode) => {
+    const appearance = validTitleBarAppearance(mode);
+    const window = getWindow();
+    if (!window || window.isDestroyed()) return;
+    window.setTitleBarOverlay({
+      color: '#00000000',
+      symbolColor: appearance === 'light' ? '#111827' : '#f9fafb',
+      height: 64,
+    });
+  }, development);
   handle('library:get-snapshot', () => database.getLibrary(), development);
   handle('library:get-folder-tree', (_event, folderId) => database.getFolderTree(validId(folderId)), development);
+  handle('library:get-track-details', (_event, trackId) => trackDetails.get(validId(trackId)), development);
   handle('library:select-and-add-folders', async () => {
     const window = getWindow();
     const options: Electron.OpenDialogOptions = { properties: ['openDirectory', 'multiSelections'] };
@@ -31,6 +43,21 @@ export function registerIpc(database: DatabaseService, scanner: ScannerService, 
     const ids = folderIds === undefined ? undefined : validIdArray(folderIds);
     void scanner.scan(ids).catch((error) => broadcastProgress(getWindow(), { isScanning: false, scannedFiles: 0, audioFiles: 0, currentPath: null, error: errorMessage(error) }));
   }, development);
+  handle('artist-metadata:refresh-missing', (_event, force) => artistMetadata.refreshMissing(force === true), development);
+  handle('artist-metadata:ensure', (_event, artistId) => artistMetadata.ensureArtist(validId(artistId)), development);
+  handle('artist-metadata:refresh', (_event, artistId) => artistMetadata.refreshArtist(validId(artistId)), development);
+  handle('artist-metadata:search', (_event, artistName) => artistMetadata.searchCandidates(validName(artistName)), development);
+  handle('artist-metadata:set-match', (_event, artistId, mbid) => artistMetadata.setArtistMatch(validId(artistId), validMusicBrainzId(mbid)), development);
+  handle('artist-metadata:set-wikipedia', (_event, artistId, url) => artistMetadata.setWikipediaOverride(validId(artistId), validWikipediaOverride(url)), development);
+  handle('artist-metadata:select-avatar', async (_event, artistId) => {
+    const id = validId(artistId);
+    const window = getWindow();
+    const options: Electron.OpenDialogOptions = { properties: ['openFile'], filters: [{ name: 'Artist image', extensions: ['jpg', 'jpeg', 'png', 'webp'] }] };
+    const result = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options);
+    return result.canceled || !result.filePaths[0] ? null : artistMetadata.selectCustomAvatar(id, result.filePaths[0]);
+  }, development);
+  handle('artist-metadata:clear-avatar', (_event, artistId) => artistMetadata.clearCustomAvatar(validId(artistId)), development);
+  handle('artist-metadata:open-source', (_event, url) => shell.openExternal(validArtistSourceUrl(url)), development);
 
   handle('playlists:list', () => database.listPlaylists(), development);
   handle('playlists:create', (_event, name) => database.createPlaylist(validName(name)), development);
@@ -58,7 +85,4 @@ function trustedSender(event: IpcMainInvokeEvent, development: boolean): boolean
   const url = event.senderFrame?.url ?? '';
   return url.startsWith('app://audio-blabla/') || (development && url.startsWith('http://localhost:4200/'));
 }
-function validId(value: unknown): string { if (typeof value !== 'string' || !ID_PATTERN.test(value)) throw new Error('Invalid identifier'); return value; }
-function validIdArray(value: unknown): string[] { if (!Array.isArray(value) || value.length > 10000) throw new Error('Invalid identifier list'); return value.map(validId); }
-function validName(value: unknown): string { if (typeof value !== 'string' || value.trim().length < 1 || value.trim().length > 200) throw new Error('Invalid name'); return value.trim(); }
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }

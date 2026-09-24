@@ -1,309 +1,103 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { LIBRARY_GATEWAY } from '../../core/contracts';
+import { ARTIST_METADATA_GATEWAY, LIBRARY_GATEWAY } from '../../core/contracts';
 import { Artist, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Album } from '../../core/models';
+import { artistAvatarCandidates } from './artist-avatar';
+import { artistInitial, compareNames } from '../library-browse';
+import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
+
+type ArtistSort = 'name' | 'albums' | 'tracks';
+type SortDirection = 'asc' | 'desc';
 
 @Component({
   selector: 'app-artists',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, IconComponent],
-  template: `
-    <div class="artists-page">
-      <header class="page-header">
-        <div class="title-group">
-          <h1>Artists</h1>
-          <span class="count-badge">{{ filteredArtists().length }} artists</span>
-        </div>
-
-        <div class="search-box">
-          <app-icon name="search" [size]="16" class="search-icon" />
-          <input
-            type="text"
-            [ngModel]="searchQuery()"
-            (ngModelChange)="searchQuery.set($event)"
-            placeholder="Search artists..."
-            aria-label="Search artists" />
-          @if (searchQuery()) {
-            <button type="button" class="clear-btn" (click)="searchQuery.set('')" title="Clear search" aria-label="Clear search">
-              <app-icon name="x" [size]="14" />
-            </button>
-          }
-        </div>
-      </header>
-
-      @if (errorMessage()) {
-        <div class="error-state" role="alert">
-          <app-icon name="alert-triangle" [size]="48" />
-          <p class="error-title">Failed to load artists</p>
-          <p class="error-desc">{{ errorMessage() }}</p>
-          <button type="button" class="btn-retry" (click)="loadArtists()">Retry</button>
-        </div>
-      } @else if (isLoading()) {
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <p>Loading artists...</p>
-        </div>
-      } @else if (filteredArtists().length === 0) {
-        <div class="empty-state">
-          <app-icon name="user" [size]="48" class="empty-icon" />
-          <p class="empty-title">No artists found</p>
-          <p class="empty-desc">No artists match your search or your library is empty.</p>
-        </div>
-      } @else {
-        <div class="artists-grid">
-          @for (artist of filteredArtists(); track artist.id) {
-            <div class="artist-card" [routerLink]="['/artists', artist.id]" tabindex="0" role="button">
-              <div class="avatar-wrapper">
-                <div class="avatar-circle">
-                  <span class="initial">{{ artist.name.charAt(0) }}</span>
-                </div>
-                <button
-                  type="button"
-                  class="quick-play-btn"
-                  (click)="onPlayArtist($event, artist)"
-                  title="Play artist tracks"
-                  aria-label="Play artist tracks">
-                  <app-icon name="play" [size]="20" />
-                </button>
-              </div>
-
-              <div class="artist-meta">
-                <h3 class="artist-name truncate" [title]="artist.name">{{ artist.name }}</h3>
-                <span class="artist-stats">
-                  {{ artist.albumIds.length }} {{ artist.albumIds.length === 1 ? 'album' : 'albums' }} •
-                  {{ artist.trackIds.length }} tracks
-                </span>
-              </div>
-            </div>
-          }
-        </div>
-      }
-    </div>
-  `,
-  styles: [`
-    .artists-page {
-      padding: var(--space-6);
-      height: 100%;
-      overflow-y: auto;
-    }
-
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--space-6);
-      flex-wrap: wrap;
-      gap: var(--space-4);
-    }
-
-    .title-group h1 {
-      font-size: var(--font-size-2xl);
-      font-weight: 700;
-    }
-
-    .count-badge {
-      font-size: var(--font-size-xs);
-      color: var(--text-muted);
-    }
-
-    .search-box {
-      position: relative;
-      display: flex;
-      align-items: center;
-      width: 280px;
-    }
-
-    .search-icon {
-      position: absolute;
-      left: var(--space-3);
-      color: var(--text-muted);
-    }
-
-    .search-box input {
-      width: 100%;
-      height: 36px;
-      padding-left: 36px;
-      padding-right: 32px;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-default);
-      border-radius: var(--radius-md);
-      color: var(--text-primary);
-    }
-
-    .clear-btn {
-      position: absolute;
-      right: var(--space-2);
-      font-size: 16px;
-      color: var(--text-muted);
-    }
-
-    .artists-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: var(--space-5);
-    }
-
-    .artist-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: var(--space-5) var(--space-3);
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
-      user-select: none;
-    }
-
-    .artist-card:hover {
-      background: var(--bg-surface-hover);
-      transform: translateY(-4px);
-      border-color: var(--color-accent-glow);
-    }
-
-    .avatar-wrapper {
-      position: relative;
-      width: 120px;
-      height: 120px;
-      margin-bottom: var(--space-4);
-    }
-
-    .avatar-circle {
-      width: 100%;
-      height: 100%;
-      border-radius: var(--radius-full);
-      background: linear-gradient(135deg, #3b0764, #1e1b4b);
-      border: 2px solid var(--border-default);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-    }
-
-    .initial {
-      font-size: var(--font-size-3xl);
-      font-weight: 800;
-      color: var(--accent-primary);
-    }
-
-    .quick-play-btn {
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 40px;
-      height: 40px;
-      border-radius: var(--radius-full);
-      background: var(--accent-primary);
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 12px var(--accent-glow);
-      opacity: 0;
-      transform: translateY(6px);
-      transition: opacity var(--transition-fast), transform var(--transition-fast), background var(--transition-fast);
-    }
-
-    .artist-card:hover .quick-play-btn {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .quick-play-btn:hover {
-      background: var(--accent-hover);
-      transform: scale(1.08);
-    }
-
-    .artist-name {
-      font-size: var(--font-size-base);
-      font-weight: 600;
-      color: var(--text-primary);
-      max-width: 160px;
-    }
-
-    .artist-stats {
-      font-size: var(--font-size-xs);
-      color: var(--text-muted);
-      margin-top: var(--space-1);
-    }
-
-    .loading-state, .empty-state, .error-state {
-      padding: var(--space-10);
-      text-align: center;
-      color: var(--text-muted);
-    }
-
-    .error-state svg {
-      stroke: var(--status-error);
-      margin-bottom: var(--space-3);
-    }
-
-    .error-title {
-      font-size: var(--font-size-base);
-      font-weight: 600;
-      color: var(--text-primary);
-      margin-bottom: var(--space-1);
-    }
-
-    .error-desc {
-      font-size: var(--font-size-sm);
-      color: var(--status-error);
-      margin-bottom: var(--space-4);
-    }
-
-    .btn-retry {
-      padding: var(--space-2) var(--space-4);
-      border-radius: var(--radius-md);
-      background: var(--bg-elevated);
-      color: var(--text-primary);
-      border: 1px solid var(--border-subtle);
-      font-weight: 500;
-      cursor: pointer;
-    }
-
-    .btn-retry:hover {
-      background: var(--bg-card);
-      border-color: var(--accent-primary);
-    }
-
-    .spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid rgba(255, 255, 255, 0.1);
-      border-top-color: var(--accent-primary);
-      border-radius: 50%;
-      animation: spin 800ms linear infinite;
-      margin: 0 auto var(--space-3);
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-  `]
+  imports: [CommonModule, RouterModule, FormsModule, IconComponent, BrowseFilterPopoverComponent],
+  templateUrl: './artists.component.html',
+  styleUrl: './artists.component.scss'
 })
 export class ArtistsComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
   private readonly player = inject(PlayerService);
+  private readonly artistMetadata = inject(ARTIST_METADATA_GATEWAY);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly artists = signal<Artist[]>([]);
   readonly allTracks = signal<Track[]>([]);
+  readonly allAlbums = signal<Album[]>([]);
   readonly isLoading = signal<boolean>(true);
   readonly errorMessage = signal<string | null>(null);
   readonly searchQuery = signal<string>('');
+  readonly sortBy = signal<ArtistSort>('name');
+  readonly sortDirection = signal<SortDirection>('asc');
+  readonly initialFilter = signal<string>('');
+  readonly initialOptions = computed(() => [...new Set([
+    ...this.artists().map((artist) => artistInitial(artist.name)),
+    ...(this.initialFilter() ? [this.initialFilter()] : []),
+  ])].sort((a, b) => a === '#' ? 1 : b === '#' ? -1 : compareNames(a, b)));
+  readonly hasFilters = computed(() => Boolean(this.searchQuery().trim() || this.initialFilter()));
+  readonly activeFilterCount = computed(() => Number(Boolean(this.initialFilter())));
+  readonly failedAvatars = signal<Set<string>>(new Set());
+  readonly refreshRunning = signal(false);
+  readonly refreshError = signal<string | null>(null);
 
   readonly filteredArtists = computed<Artist[]>(() => {
     const list = this.artists();
     const query = this.searchQuery().trim().toLowerCase();
-    if (!query) return list;
-    return list.filter((a) => a.name.toLowerCase().includes(query));
+    const initial = this.initialFilter();
+    const direction = this.sortDirection() === 'asc' ? 1 : -1;
+    const sortBy = this.sortBy();
+    return list.filter((a) =>
+      (!query || a.name.toLowerCase().includes(query)) &&
+      (!initial || artistInitial(a.name) === initial)
+    ).sort((a, b) => {
+      let comparison = 0;
+      if (sortBy === 'name') comparison = compareNames(a.name, b.name);
+      if (sortBy === 'albums') comparison = a.albumIds.length - b.albumIds.length;
+      if (sortBy === 'tracks') comparison = a.trackIds.length - b.trackIds.length;
+      return comparison * direction || compareNames(a.name, b.name) || compareNames(a.id, b.id);
+    });
   });
 
+  clearFilters(): void {
+    this.initialFilter.set('');
+  }
+
   async ngOnInit(): Promise<void> {
+    let wasScanning = false;
+    this.libraryGateway.scanProgress$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((progress) => {
+      const justFinished = wasScanning && !progress.isScanning;
+      wasScanning = progress.isScanning;
+      if (justFinished) void this.loadArtists();
+    });
+    this.artistMetadata.updates$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((update) => {
+      this.artists.update((artists) => artists.map((artist) => artist.id === update.artistId ? { ...artist, onlineMetadata: update.metadata, customAvatar: update.customAvatar === undefined ? artist.customAvatar : update.customAvatar } : artist));
+    });
     await this.loadArtists();
+    void this.artistMetadata.refreshMissing();
+  }
+
+  avatarFor(artist: Artist): string | null {
+    return artistAvatarCandidates(artist, this.allAlbums()).find((url) => !this.failedAvatars().has(`${artist.id}:${url}`)) ?? null;
+  }
+
+  onAvatarError(artist: Artist): void {
+    const url = this.avatarFor(artist);
+    if (url) this.failedAvatars.update((current) => new Set(current).add(`${artist.id}:${url}`));
+  }
+
+  async refreshMissingInfo(): Promise<void> {
+    this.refreshRunning.set(true);
+    this.refreshError.set(null);
+    try { await this.artistMetadata.refreshMissing(true); }
+    catch (error) { this.refreshError.set(error instanceof Error ? error.message : String(error)); }
+    finally { this.refreshRunning.set(false); }
   }
 
   async loadArtists(): Promise<void> {
@@ -313,6 +107,7 @@ export class ArtistsComponent implements OnInit {
       const lib = await this.libraryGateway.getLibrary();
       this.artists.set(lib.artists);
       this.allTracks.set(lib.tracks);
+      this.allAlbums.set(lib.albums);
     } catch (err: any) {
       this.errorMessage.set(err?.message || 'Failed to load artists');
     } finally {

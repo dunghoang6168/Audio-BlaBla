@@ -9,11 +9,98 @@ import { ScannerService } from '../services/scanner.service.js';
 import { isPathInside, pathKey, pathsOverlap, stableId } from '../utils/path-utils.js';
 import { createFileResponse } from '../protocols/file-response.js';
 import { validSettings } from '../ipc/settings-validation.js';
+import {
+  validArtistSourceUrl,
+  validId,
+  validMusicBrainzId,
+  validTitleBarAppearance,
+  validWikipediaOverride,
+} from '../ipc/ipc-validation.js';
+import { mapTrackDetails, TrackDetailsService } from '../services/track-details.service.js';
+import type { IAudioMetadata } from 'music-metadata';
+import './artist-metadata.test.js';
 
 test('settings IPC accepts allowlisted themes and rejects invalid values', () => {
   assert.deepEqual(validSettings({ themePreset: 'sage', accentColor: 'amber' }), { themePreset: 'sage', accentColor: 'amber' });
   assert.throws(() => validSettings({ themePreset: 'light' }), /Invalid theme preset/);
   assert.throws(() => validSettings({ accentColor: '#ffffff' }), /Invalid accent color/);
+});
+
+test('IPC identifier validation rejects malformed track IDs', () => {
+  const validTrackId = `track-${'a'.repeat(64)}`;
+  assert.equal(validId(validTrackId), validTrackId);
+  assert.throws(() => validId('../Music/track.flac'), /Invalid identifier/);
+  assert.throws(() => validId(`track-${'A'.repeat(64)}`), /Invalid identifier/);
+});
+
+test('title bar appearance accepts only the renderer allowlist', () => {
+  assert.equal(validTitleBarAppearance('light'), 'light');
+  assert.equal(validTitleBarAppearance('dark'), 'dark');
+  assert.throws(() => validTitleBarAppearance('#ffffff'), /Invalid title bar appearance/);
+});
+
+test('artist metadata IPC validates identifiers and strict source allowlists', () => {
+  const mbid = '12345678-1234-4234-9234-123456789abc';
+  assert.equal(validMusicBrainzId(mbid), mbid);
+  assert.throws(() => validMusicBrainzId('../artist'), /Invalid MusicBrainz identifier/);
+
+  const wikipedia = 'https://en.wikipedia.org/wiki/Aimer';
+  assert.equal(validWikipediaOverride(wikipedia), wikipedia);
+  assert.equal(validWikipediaOverride(null), null);
+  assert.throws(() => validWikipediaOverride('https://vi.wikipedia.org/wiki/Aimer'), /Invalid Wikipedia URL/);
+  assert.throws(() => validWikipediaOverride('http://en.wikipedia.org/wiki/Aimer'), /Invalid Wikipedia URL/);
+
+  assert.equal(validArtistSourceUrl('https://musicbrainz.org/artist/' + mbid), 'https://musicbrainz.org/artist/' + mbid);
+  assert.equal(validArtistSourceUrl('https://www.wikidata.org/wiki/Q1'), 'https://www.wikidata.org/wiki/Q1');
+  assert.throws(() => validArtistSourceUrl('https://example.com/artist'), /Untrusted source URL/);
+});
+
+test('detailed metadata mapping preserves parser values without inventing missing fields', () => {
+  const metadata = {
+    common: {
+      track: { no: 12, of: 30 }, disk: { no: 1, of: 2 }, title: ' Liệm ', artist: 'RPT MCK', artists: ['RPT MCK'],
+      album: 'HVL', albumartist: 'RPT MCK', albumartists: ['RPT MCK'], date: '2026-06-17', year: 2026,
+      composer: ['Nghiêm Vũ Hoàng Long'], genre: ['Hip-Hop'],
+    },
+    format: {
+      tagTypes: ['vorbis'], duration: 233.25, sampleRate: 96000, numberOfChannels: 2, bitsPerSample: 24,
+      bitrate: 3016000, codec: 'FLAC', container: 'FLAC', tool: 'Lavf60.16.100', lossless: true,
+      numberOfSamples: 22391968, audioMD5: Uint8Array.from([0xa0, 0x7a, 0xf0, 0x8b]),
+    },
+    native: {}, quality: { warnings: [] },
+  } as unknown as IAudioMetadata;
+
+  const details = mapTrackDetails('track-test', metadata, {
+    fileName: '12. Liệm.flac', path: 'G:\\Music\\12. Liệm.flac', fileSize: 90_282_394, lastModified: 1_800_000_000_000,
+  });
+  assert.equal(details.metadata.title, 'Liệm');
+  assert.deepEqual(details.metadata.composers, ['Nghiêm Vũ Hoàng Long']);
+  assert.equal(details.metadata.totalTracks, 30);
+  assert.equal(details.audio.numberOfSamples, 22391968);
+  assert.equal(details.audio.lossless, true);
+  assert.equal(details.audio.audioMd5, 'A07AF08B');
+  assert.equal(details.audio.codecProfile, null);
+});
+
+test('track details service rejects files outside registered music roots', async () => {
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-details-security-'));
+  const libraryPath = path.join(temporaryRoot, 'Music');
+  const outsidePath = path.join(temporaryRoot, 'outside.wav');
+  const database = new DatabaseService(path.join(temporaryRoot, 'library.sqlite'));
+  try {
+    await mkdir(libraryPath, { recursive: true });
+    await writeFile(outsidePath, createWaveFile());
+    const folder = database.addFolder(libraryPath, 'Music');
+    const stored = createStoredTrack(`track-${'c'.repeat(64)}`, 'Outside', 1, 1, temporaryRoot);
+    stored.path = outsidePath;
+    stored.fileName = path.basename(outsidePath);
+    stored.isAvailable = true;
+    database.upsertTracks(folder.id, 'security-scan', [stored]);
+    await assert.rejects(() => new TrackDetailsService(database).get(stored.id), /outside registered music folders/);
+  } finally {
+    database.close();
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
 });
 
 test('path helpers normalize identity and reject sibling traversal', () => {
@@ -88,6 +175,82 @@ test('library snapshot stores album track IDs in disc and track order', async ()
   }
 });
 
+test('folder artwork is imported and refreshed when audio files are unchanged', async () => {
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-folder-cover-'));
+  const libraryPath = path.join(temporaryRoot, 'Music');
+  const albumPath = path.join(libraryPath, 'Album');
+  const artworkPath = path.join(temporaryRoot, 'artwork');
+  const databasePath = path.join(temporaryRoot, 'library.sqlite');
+  const database = new DatabaseService(databasePath);
+  try {
+    await mkdir(albumPath, { recursive: true });
+    await writeFile(path.join(albumPath, 'song.wav'), createWaveFile());
+    const folder = database.addFolder(libraryPath, 'Music');
+    const scanner = new ScannerService(database, new ArtworkService(artworkPath, database), () => undefined);
+    await scanner.scan([folder.id]);
+    assert.equal(database.getLibrary().tracks[0]?.artwork, null);
+
+    const coverPath = path.join(albumPath, 'COVER.PNG');
+    await writeFile(coverPath, testPng());
+    const { DatabaseSync } = await import('node:sqlite');
+    const legacyDatabase = new DatabaseSync(databasePath);
+    legacyDatabase.exec('UPDATE tracks SET artwork_source = NULL');
+    legacyDatabase.close();
+    await scanner.scan([folder.id]);
+    const initial = database.getLibrary();
+    assert.match(initial.tracks[0]?.artwork ?? '', /^music:\/\/artwork\/[a-f0-9]{64}$/);
+    assert.equal(initial.albums[0]?.artwork, initial.tracks[0]?.artwork);
+
+    await writeFile(coverPath, Buffer.concat([testPng(), Buffer.alloc(14 * 1024 * 1024)]));
+    await scanner.scan([folder.id]);
+    const larger = database.getLibrary().tracks[0]?.artwork;
+    assert.ok(larger);
+    assert.notEqual(larger, initial.tracks[0]?.artwork);
+
+    await writeFile(coverPath, Buffer.from('invalid image'));
+    await scanner.scan([folder.id]);
+    assert.equal(database.getLibrary().tracks[0]?.artwork, null);
+
+    await writeFile(coverPath, Buffer.alloc(20 * 1024 * 1024 + 1));
+    await scanner.scan([folder.id]);
+    assert.equal(database.getLibrary().tracks[0]?.artwork, null);
+
+    await writeFile(coverPath, testPng());
+    await scanner.scan([folder.id]);
+    assert.ok(database.getLibrary().tracks[0]?.artwork);
+    await unlink(coverPath);
+    await scanner.scan([folder.id]);
+    assert.equal(database.getLibrary().tracks[0]?.artwork, null);
+
+    const frontPath = path.join(albumPath, 'Front.png');
+    await writeFile(frontPath, testPng());
+    await scanner.scan([folder.id]);
+    assert.ok(database.getLibrary().tracks[0]?.artwork);
+    await unlink(frontPath);
+  } finally {
+    database.close();
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('album artwork prefers embedded art even when a folder cover is encountered first', async () => {
+  const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-cover-priority-'));
+  const database = new DatabaseService(path.join(temporaryRoot, 'library.sqlite'));
+  try {
+    const folder = database.addFolder(temporaryRoot, 'Music');
+    const artwork = new ArtworkService(path.join(temporaryRoot, 'artwork'), database);
+    const folderHash = await artwork.saveBuffer(testPng(), 'image/png');
+    const embeddedHash = await artwork.saveBuffer(Buffer.concat([testPng(), Buffer.from([1])]), 'image/png');
+    const folderTrack = { ...createStoredTrack('a-folder', 'A folder', 1, 1, temporaryRoot), artworkHash: folderHash, artworkSource: 'folder' as const };
+    const embeddedTrack = { ...createStoredTrack('z-embedded', 'Z embedded', 1, 2, temporaryRoot), artworkHash: embeddedHash, artworkSource: 'embedded' as const };
+    database.upsertTracks(folder.id, 'priority-scan', [folderTrack, embeddedTrack]);
+    assert.equal(database.getLibrary().albums[0]?.artwork, `music://artwork/${embeddedHash}`);
+  } finally {
+    database.close();
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
 test('scanner, reconciliation, playlists, settings and database persistence', async () => {
   const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-test-'));
   const libraryPath = path.join(temporaryRoot, 'Music');
@@ -115,6 +278,11 @@ test('scanner, reconciliation, playlists, settings and database persistence', as
     assert.equal(progress.at(-1)?.audioFiles, 1);
 
     const firstTrackId = snapshot.tracks[0]!.id;
+    const details = await new TrackDetailsService(database).get(firstTrackId);
+    assert.equal(details.trackId, firstTrackId);
+    assert.equal(details.audio.sampleRate, 44100);
+    assert.equal(details.audio.bitsPerSample, 16);
+    assert.equal(details.file.path, audioPath);
     await scanner.scan([folder.id]);
     snapshot = database.getLibrary();
     assert.equal(snapshot.tracks.length, 1);
@@ -201,4 +369,8 @@ function createStoredTrack(
 
 function requestWithRange(range: string): Request {
   return new Request('music://track/test', { headers: { range } });
+}
+
+function testPng(): Buffer {
+  return Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/qWQAAAAASUVORK5CYII=', 'base64');
 }

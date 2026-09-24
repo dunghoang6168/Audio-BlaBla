@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { LibraryGateway, LibrarySnapshot } from '../contracts/library.gateway';
-import { FolderNode, MusicFolder, ScanProgress } from '../models';
+import { FolderNode, MusicFolder, ScanProgress, TrackDetails } from '../models';
 import { getDesktopApi } from './desktop-api';
 
 @Injectable()
@@ -15,6 +15,7 @@ export class ElectronLibraryGateway implements LibraryGateway {
   }
   getLibrary(): Promise<LibrarySnapshot> { return this.requireApi().library.getSnapshot(); }
   getFolderTree(folderId: string): Promise<FolderNode | null> { return this.requireApi().library.getFolderTree(folderId); }
+  getTrackDetails(trackId: string): Promise<TrackDetails> { return this.requireApi().library.getTrackDetails(trackId); }
   selectAndAddMusicFolders(): Promise<MusicFolder[]> { return this.requireApi().library.selectAndAddFolders(); }
   removeMusicFolder(folderId: string): Promise<void> { return this.requireApi().library.removeFolder(folderId); }
   requestScan(folderIds?: string[]): Promise<void> { return this.requireApi().library.startScan(folderIds); }

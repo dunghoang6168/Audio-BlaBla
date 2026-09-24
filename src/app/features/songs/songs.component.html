@@ -1,0 +1,297 @@
+
+    <div class="songs-container">
+      <!-- Header & Search Toolbar -->
+      <header class="songs-header">
+        <div class="title-area">
+          <h1>Songs</h1>
+          <span class="track-count">{{ filteredTracks().length }} tracks</span>
+        </div>
+
+        <div class="toolbar">
+          <!-- Quick Action Buttons -->
+          <button
+            type="button"
+            class="action-btn primary"
+            (click)="onPlayAll()"
+            [disabled]="filteredTracks().length === 0"
+            title="Play all tracks in current view"
+            aria-label="Play all tracks">
+            <app-icon name="play" [size]="16" />
+            Play All
+          </button>
+
+          <button
+            type="button"
+            class="action-btn secondary"
+            (click)="onShuffleAll()"
+            [disabled]="filteredTracks().length === 0"
+            title="Shuffle all tracks in current view"
+            aria-label="Shuffle all tracks">
+            <app-icon name="shuffle" [size]="16" />
+            Shuffle
+          </button>
+
+          <!-- Search Box -->
+          <div class="search-box">
+            <app-icon name="search" [size]="16" class="search-icon" />
+            <input
+              type="text"
+              [ngModel]="searchQuery()"
+              (ngModelChange)="searchQuery.set($event)"
+              placeholder="Search by title, artist, album..."
+              aria-label="Search tracks" />
+            @if (searchQuery()) {
+              <button type="button" class="clear-search-btn" (click)="searchQuery.set('')" title="Clear search" aria-label="Clear search">
+                <app-icon name="x" [size]="14" />
+              </button>
+            }
+          </div>
+          <app-browse-filter-popover [activeCount]="activeFilterCount()">
+            <div class="browse-filter-fields">
+              <div class="browse-filter-field">
+                <label for="song-sort">Sort by</label>
+                <div class="browse-filter-actions">
+                  <select id="song-sort" [ngModel]="sortColumn()" (ngModelChange)="sortColumn.set($event)">
+                    <option value="title">Title</option><option value="artist">Artist</option>
+                    <option value="album">Album</option><option value="duration">Duration</option>
+                    <option value="codec">Codec</option><option value="sampleRate">Sample rate</option>
+                  </select>
+                  <select aria-label="Sort direction" [ngModel]="sortDirection()" (ngModelChange)="sortDirection.set($event)">
+                    <option value="asc">Ascending</option><option value="desc">Descending</option>
+                  </select>
+                </div>
+              </div>
+              <div class="browse-filter-field">
+                <label for="song-artist-filter">Artist</label>
+                <select id="song-artist-filter" [ngModel]="artistFilter()" (ngModelChange)="artistFilter.set($event)">
+                  <option value="">All artists</option>
+                  @for (artist of artistOptions(); track artist) { <option [value]="artist">{{ artist }}</option> }
+                  @if (hasUnknownArtist()) { <option value="__unknown_artist__">Unknown Artist</option> }
+                </select>
+              </div>
+              <div class="browse-filter-field">
+                <label for="song-album-filter">Album</label>
+                <select id="song-album-filter" [ngModel]="albumFilter()" (ngModelChange)="albumFilter.set($event)">
+                  <option value="">All albums</option>
+                  @for (album of albumOptions(); track album) { <option [value]="album">{{ album }}</option> }
+                  @if (hasUnknownAlbum()) { <option value="__unknown_album__">Unknown Album</option> }
+                </select>
+              </div>
+              <div class="browse-filter-field">
+                <label for="song-year-filter">Year</label>
+                <select id="song-year-filter" [ngModel]="yearFilter()" (ngModelChange)="yearFilter.set($event)">
+                  <option value="">All years</option>
+                  @for (year of yearOptions(); track year) { <option [value]="year">{{ year }}</option> }
+                  @if (hasUnknownYear()) { <option value="unknown">Unknown Year</option> }
+                </select>
+              </div>
+              @if (activeFilterCount()) { <button type="button" class="browse-filter-clear" (click)="clearFilters()">Clear filters</button> }
+            </div>
+          </app-browse-filter-popover>
+        </div>
+      </header>
+
+      <!-- Unavailable Track Notice Toast -->
+      @if (noticeMessage()) {
+        <div class="notice-toast" role="alert">
+          <span>{{ noticeMessage() }}</span>
+          <button type="button" (click)="noticeMessage.set(null)" aria-label="Dismiss notice">
+            <app-icon name="x" [size]="14" />
+          </button>
+        </div>
+      }
+
+      <!-- Main Songs Table View -->
+      <div class="table-scroll-container">
+        @if (errorMessage()) {
+          <div class="error-state" role="alert">
+            <app-icon name="alert-triangle" [size]="48" />
+            <p class="error-title">Failed to load songs</p>
+            <p class="error-desc">{{ errorMessage() }}</p>
+            <button type="button" class="btn-retry" (click)="loadSongs()">Retry</button>
+          </div>
+        } @else if (isLoading()) {
+          <div class="loading-state">
+            <div class="spinner"></div>
+            <p>Loading your music library...</p>
+          </div>
+        } @else if (filteredTracks().length === 0) {
+          <div class="empty-state">
+            <app-icon name="music" [size]="48" />
+            <p class="empty-title">No songs found</p>
+            <p class="empty-desc">
+              @if (hasFilters()) {
+                No tracks match your search or filters. Try changing the criteria.
+              } @else {
+                Your music library is currently empty.
+              }
+            </p>
+          </div>
+        } @else {
+          <table class="songs-table" role="grid" aria-label="Songs list">
+            <thead>
+              <tr>
+                <th class="col-index">#</th>
+                <th class="col-title sortable" (click)="toggleSort('title')" [attr.aria-sort]="getAriaSort('title')">
+                  <span>Title</span>
+                  @if (sortColumn() === 'title') {
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
+                  }
+                </th>
+                <th class="col-artist sortable" (click)="toggleSort('artist')" [attr.aria-sort]="getAriaSort('artist')">
+                  <span>Artist</span>
+                  @if (sortColumn() === 'artist') {
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
+                  }
+                </th>
+                <th class="col-album sortable" (click)="toggleSort('album')" [attr.aria-sort]="getAriaSort('album')">
+                  <span>Album</span>
+                  @if (sortColumn() === 'album') {
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
+                  }
+                </th>
+                <th class="col-duration sortable" (click)="toggleSort('duration')" [attr.aria-sort]="getAriaSort('duration')">
+                  <span>Time</span>
+                  @if (sortColumn() === 'duration') {
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
+                  }
+                </th>
+                <th class="col-codec sortable" (click)="toggleSort('codec')" [attr.aria-sort]="getAriaSort('codec')">
+                  <span>Codec</span>
+                  @if (sortColumn() === 'codec') {
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
+                  }
+                </th>
+                <th class="col-quality sortable" (click)="toggleSort('sampleRate')" [attr.aria-sort]="getAriaSort('sampleRate')">
+                  <span>Sample Rate</span>
+                  @if (sortColumn() === 'sampleRate') {
+                    <span class="sort-indicator">
+                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
+                    </span>
+                  }
+                </th>
+                <th class="col-actions"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (track of filteredTracks(); track track.id; let i = $index) {
+                <tr
+                  class="song-row"
+                  [class.selected]="selectedTrackId() === track.id"
+                  [class.playing]="player.currentTrack()?.id === track.id"
+                  [class.unavailable]="!track.isAvailable"
+                  (click)="onSelectTrack(track)"
+                  (dblclick)="onPlayTrack(track, i)"
+                  (keydown.enter)="onPlayTrack(track, i)"
+                  tabindex="0"
+                  role="row">
+                  <!-- # Index / Playing Indicator -->
+                  <td class="col-index">
+                    @if (player.currentTrack()?.id === track.id) {
+                      <div class="playing-indicator" title="Currently Playing">
+                        @if (player.isPlaying()) {
+                          <span class="bar bar-1"></span>
+                          <span class="bar bar-2"></span>
+                          <span class="bar bar-3"></span>
+                        } @else {
+                          <app-icon name="pause" [size]="10" class="pause-icon" />
+                        }
+                      </div>
+                    } @else {
+                      <span class="row-num">{{ i + 1 }}</span>
+                    }
+                  </td>
+
+                  <!-- Title with Artwork -->
+                  <td class="col-title">
+                    <div class="title-cell">
+                      @if (track.artwork) {
+                        <img [src]="track.artwork" [alt]="track.title" class="thumb-img" />
+                      } @else {
+                        <div class="thumb-placeholder" aria-hidden="true">
+                          <app-icon name="music" [size]="16" />
+                        </div>
+                      }
+                      <div class="title-text-group">
+                        <span class="track-name truncate" [title]="track.title">
+                          {{ track.title }}
+                        </span>
+                        @if (!track.isAvailable) {
+                          <span class="badge-unavailable" title="File not found or missing from disk">
+                            Unavailable
+                          </span>
+                        }
+                      </div>
+                    </div>
+                  </td>
+
+                  <!-- Artist -->
+                  <td class="col-artist truncate" [title]="track.artist || 'Unknown Artist'">
+                    {{ track.artist || 'Unknown Artist' }}
+                  </td>
+
+                  <!-- Album -->
+                  <td class="col-album truncate" [title]="track.album || 'Unknown Album'">
+                    {{ track.album || 'Unknown Album' }}
+                  </td>
+
+                  <!-- Duration -->
+                  <td class="col-duration">
+                    {{ track.duration | duration }}
+                  </td>
+
+                  <!-- Codec Badge -->
+                  <td class="col-codec">
+                    <span class="badge-codec" [class.hi-res]="isHiRes(track)">
+                      {{ track.codec || 'UNKNOWN' }}
+                    </span>
+                  </td>
+
+                  <!-- Sample Rate & Bit Depth -->
+                  <td class="col-quality">
+                    <span class="quality-spec">
+                      {{ formatSampleRate(track.sampleRate) }}
+                      @if (track.bitDepth) {
+                        <span class="bit-depth">/ {{ track.bitDepth }}-bit</span>
+                      }
+                    </span>
+                  </td>
+
+                  <!-- Row Actions -->
+                  <td class="col-actions" (click)="$event.stopPropagation()">
+                    <div class="row-actions">
+                      <button
+                        type="button"
+                        class="row-action-btn"
+                        (click)="onPlayNext(track)"
+                        title="Play Next"
+                        aria-label="Play Next">
+                        <app-icon name="skip-forward" [size]="14" />
+                      </button>
+                      <button
+                        type="button"
+                        class="row-action-btn"
+                        (click)="onAddToQueue(track)"
+                        title="Add to Queue"
+                        aria-label="Add to Queue">
+                        <app-icon name="plus" [size]="14" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </div>
+    </div>

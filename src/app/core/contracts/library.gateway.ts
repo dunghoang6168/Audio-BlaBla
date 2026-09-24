@@ -1,6 +1,6 @@
 import { InjectionToken } from '@angular/core';
 import { Observable } from 'rxjs';
-import { Track, Album, Artist, MusicFolder, FolderNode, ScanProgress } from '../models';
+import { Track, TrackDetails, Album, Artist, MusicFolder, FolderNode, ScanProgress } from '../models';
 
 export interface LibrarySnapshot {
   tracks: Track[];
@@ -12,6 +12,7 @@ export interface LibrarySnapshot {
 export interface LibraryGateway {
   getLibrary(): Promise<LibrarySnapshot>;
   getFolderTree(folderId: string): Promise<FolderNode | null>;
+  getTrackDetails(trackId: string): Promise<TrackDetails>;
   selectAndAddMusicFolders(): Promise<MusicFolder[]>;
   removeMusicFolder(folderId: string): Promise<void>;
   requestScan(folderIds?: string[]): Promise<void>;

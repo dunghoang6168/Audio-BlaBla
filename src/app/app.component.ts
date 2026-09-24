@@ -1,10 +1,12 @@
-import { Component, HostListener, signal } from '@angular/core';
+import { Component, HostListener, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
-import { DemoBannerComponent } from './shared/components/demo-banner/demo-banner.component';
+import { AppHeaderComponent } from './shared/components/app-header/app-header.component';
 import { SidebarComponent } from './shared/components/sidebar/sidebar.component';
 import { PlayerBarComponent } from './shared/components/player-bar/player-bar.component';
 import { QueueDrawerComponent } from './shared/components/queue-drawer/queue-drawer.component';
+import { TrackDetailsPanelComponent } from './shared/components/track-details-panel/track-details-panel.component';
+import { RightPanelService } from './core/layout/right-panel.service';
 
 @Component({
   selector: 'app-root',
@@ -12,90 +14,34 @@ import { QueueDrawerComponent } from './shared/components/queue-drawer/queue-dra
   imports: [
     CommonModule,
     RouterOutlet,
-    DemoBannerComponent,
+    AppHeaderComponent,
     SidebarComponent,
     PlayerBarComponent,
     QueueDrawerComponent,
+    TrackDetailsPanelComponent,
   ],
-  template: `
-    <div class="app-layout">
-      <!-- Top Demo Banner -->
-      <app-demo-banner />
-
-      <!-- Main Workspace (Sidebar + Router Content + Queue Drawer) -->
-      <div class="workspace">
-        <app-sidebar
-          [isCollapsed]="isSidebarCollapsed()"
-          (toggleCollapse)="onToggleSidebar()"
-        />
-
-        <main class="main-content" role="main">
-          <router-outlet />
-        </main>
-
-        <app-queue-drawer
-          [isOpen]="isQueueOpen()"
-          (close)="onCloseQueue()"
-        />
-      </div>
-
-      <!-- Fixed Bottom Player Bar -->
-      <app-player-bar
-        [isQueueOpen]="isQueueOpen()"
-        (toggleQueue)="onToggleQueue()"
-      />
-    </div>
-  `,
-  styles: [`
-    .app-layout {
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      position: relative;
-      background: var(--color-canvas);
-      color: var(--color-text);
-      transition: background-color var(--transition-normal), color var(--transition-normal);
-    }
-
-    .workspace {
-      flex: 1;
-      display: flex;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .main-content {
-      flex: 1;
-      height: 100%;
-      overflow: hidden;
-      background: var(--color-canvas);
-      position: relative;
-      transition: background-color var(--transition-normal), color var(--transition-normal);
-    }
-  `]
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.scss'
 })
 export class AppComponent {
   readonly isSidebarCollapsed = signal<boolean>(false);
-  readonly isQueueOpen = signal<boolean>(false);
+  readonly rightPanels = inject(RightPanelService);
+  readonly isQueueOpen = this.rightPanels.isQueueOpen;
 
   onToggleSidebar(): void {
     this.isSidebarCollapsed.update((val) => !val);
   }
 
   onToggleQueue(): void {
-    this.isQueueOpen.update((val) => !val);
+    this.rightPanels.toggleQueue();
   }
 
   onCloseQueue(): void {
-    this.isQueueOpen.set(false);
+    this.rightPanels.closeQueue();
   }
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Escape' && this.isQueueOpen()) {
-      this.onCloseQueue();
-    }
+    if (event.key === 'Escape') this.rightPanels.closeActive();
   }
 }

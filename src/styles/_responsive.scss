@@ -1,0 +1,25 @@
+/* Desktop 900x600 responsive optimizations */
+@media (max-width: 900px) {
+  :root {
+    --sidebar-width: 168px;
+    --sidebar-collapsed-width: 64px;
+    --player-bar-height: 80px;
+    --queue-drawer-width: 300px;
+    --space-8: 1.5rem;
+    --space-10: 2rem;
+  }
+
+  .hide-on-compact {
+    display: none !important;
+  }
+}
+
+/* Accessibility: Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

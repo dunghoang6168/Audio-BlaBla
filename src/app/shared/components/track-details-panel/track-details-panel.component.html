@@ -1,0 +1,65 @@
+
+    <aside id="track-details-panel" class="track-details-panel" aria-labelledby="track-details-title">
+      <div
+        #resizeHandle
+        class="resize-handle"
+        role="separator"
+        aria-label="Resize track properties panel"
+        aria-orientation="vertical"
+        tabindex="0"
+        [attr.aria-valuemin]="minWidth"
+        [attr.aria-valuemax]="maxWidth()"
+        [attr.aria-valuenow]="effectiveWidth()"
+        (dblclick)="resetWidth()"
+        (keydown)="onResizeKeyDown($event)">
+        <span aria-hidden="true"></span>
+      </div>
+
+      <header class="panel-header">
+        <div class="title-group">
+          <span class="title-icon" aria-hidden="true"><app-icon name="info" [size]="18" /></span>
+          <div>
+            <h2 id="track-details-title">Track Properties</h2>
+            @if (player.currentTrack(); as track) {
+              <p>{{ track.title }}@if (track.artist; as artist) { <span aria-hidden="true"> · </span>{{ artist }} }</p>
+            }
+          </div>
+        </div>
+        <button type="button" class="close-button" (click)="rightPanels.closeTrackDetails()" aria-label="Close track properties">
+          <app-icon name="x" [size]="18" />
+        </button>
+        <span class="source-note">Source-file metadata only. This does not describe DAC output.</span>
+      </header>
+
+      <div class="panel-content">
+        @if (loading()) {
+          <div class="state-view" role="status">
+            <span class="loading-indicator" aria-hidden="true"></span>
+            <p>Reading metadata from the source file…</p>
+          </div>
+        } @else if (error()) {
+          <div class="state-view error-view" role="alert">
+            <app-icon name="alert-triangle" [size]="28" />
+            <strong>Track details could not be loaded</strong>
+            <p>{{ error() }}</p>
+            <button type="button" class="retry-button" (click)="retry()">Retry</button>
+          </div>
+        } @else if (details()) {
+          <div class="properties-sections">
+            @for (section of sections(); track section.title) {
+              <section class="property-section">
+                <h3>{{ section.title }}</h3>
+                <dl class="property-list">
+                  @for (row of section.rows; track row.name) {
+                    <div class="property-row">
+                      <dt>{{ row.name }}</dt>
+                      <dd [class.path-value]="row.path" [title]="row.path ? row.value : null">{{ row.value }}</dd>
+                    </div>
+                  }
+                </dl>
+              </section>
+            }
+          </div>
+        }
+      </div>
+    </aside>

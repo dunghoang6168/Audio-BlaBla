@@ -389,4 +389,48 @@ describe('PlayerService (Queue, Repeat, Shuffle, Playback)', () => {
       expect(service.isPlaying()).toBeTrue();
     });
   });
+
+  describe('Idempotent media transport operations', () => {
+    it('does not pause when play is requested repeatedly while already playing', async () => {
+      const playSpy = spyOn(engine, 'play').and.callThrough();
+      await service.playCollection(mockTracks, 0);
+
+      await service.play();
+      await service.play();
+
+      expect(playSpy).toHaveBeenCalledTimes(1);
+      expect(service.isPlaying()).toBeTrue();
+    });
+
+    it('does not resume when pause is requested repeatedly', async () => {
+      const pauseSpy = spyOn(engine, 'pause').and.callThrough();
+      await service.playCollection(mockTracks, 0);
+
+      service.pause();
+      service.pause();
+
+      expect(pauseSpy).toHaveBeenCalledTimes(1);
+      expect(service.isPlaying()).toBeFalse();
+    });
+
+    it('starts the first queued track when play is requested without a current track', async () => {
+      service.queue.set([{ id: 'queued-track', track: mockTracks[0], originalIndex: 0 }]);
+
+      await service.play();
+
+      expect(service.currentIndex()).toBe(0);
+      expect(service.currentTrack()?.id).toBe('t-1');
+      expect(service.isPlaying()).toBeTrue();
+    });
+
+    it('stops by pausing and rewinding the current track', async () => {
+      await service.playCollection(mockTracks, 0);
+      service.seek(45);
+
+      service.stop();
+
+      expect(service.isPlaying()).toBeFalse();
+      expect(service.currentTime()).toBe(0);
+    });
+  });
 });

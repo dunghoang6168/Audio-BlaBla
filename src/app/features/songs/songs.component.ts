@@ -1,685 +1,31 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY } from '../../core/contracts';
 import { Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
+import { compareNames } from '../library-browse';
 
 type SortColumn = 'title' | 'artist' | 'album' | 'duration' | 'codec' | 'sampleRate';
 type SortDirection = 'asc' | 'desc';
+const UNKNOWN_ARTIST = '__unknown_artist__';
+const UNKNOWN_ALBUM = '__unknown_album__';
+const UNKNOWN_YEAR = 'unknown';
 
 @Component({
   selector: 'app-songs',
   standalone: true,
-  imports: [CommonModule, FormsModule, DurationPipe, IconComponent],
-  template: `
-    <div class="songs-container">
-      <!-- Header & Search Toolbar -->
-      <header class="songs-header">
-        <div class="title-area">
-          <h1>Songs</h1>
-          <span class="track-count">{{ filteredTracks().length }} tracks</span>
-        </div>
-
-        <div class="toolbar">
-          <!-- Quick Action Buttons -->
-          <button
-            type="button"
-            class="action-btn primary"
-            (click)="onPlayAll()"
-            [disabled]="filteredTracks().length === 0"
-            title="Play all tracks in current view"
-            aria-label="Play all tracks">
-            <app-icon name="play" [size]="16" />
-            Play All
-          </button>
-
-          <button
-            type="button"
-            class="action-btn secondary"
-            (click)="onShuffleAll()"
-            [disabled]="filteredTracks().length === 0"
-            title="Shuffle all tracks in current view"
-            aria-label="Shuffle all tracks">
-            <app-icon name="shuffle" [size]="16" />
-            Shuffle
-          </button>
-
-          <!-- Search Box -->
-          <div class="search-box">
-            <app-icon name="search" [size]="16" class="search-icon" />
-            <input
-              type="text"
-              [ngModel]="searchQuery()"
-              (ngModelChange)="searchQuery.set($event)"
-              placeholder="Search by title, artist, album..."
-              aria-label="Search tracks" />
-            @if (searchQuery()) {
-              <button type="button" class="clear-search-btn" (click)="searchQuery.set('')" title="Clear search" aria-label="Clear search">
-                <app-icon name="x" [size]="14" />
-              </button>
-            }
-          </div>
-        </div>
-      </header>
-
-      <!-- Unavailable Track Notice Toast -->
-      @if (noticeMessage()) {
-        <div class="notice-toast" role="alert">
-          <span>{{ noticeMessage() }}</span>
-          <button type="button" (click)="noticeMessage.set(null)" aria-label="Dismiss notice">
-            <app-icon name="x" [size]="14" />
-          </button>
-        </div>
-      }
-
-      <!-- Main Songs Table View -->
-      <div class="table-scroll-container">
-        @if (errorMessage()) {
-          <div class="error-state" role="alert">
-            <app-icon name="alert-triangle" [size]="48" />
-            <p class="error-title">Failed to load songs</p>
-            <p class="error-desc">{{ errorMessage() }}</p>
-            <button type="button" class="btn-retry" (click)="loadSongs()">Retry</button>
-          </div>
-        } @else if (isLoading()) {
-          <div class="loading-state">
-            <div class="spinner"></div>
-            <p>Loading your music library...</p>
-          </div>
-        } @else if (filteredTracks().length === 0) {
-          <div class="empty-state">
-            <app-icon name="music" [size]="48" />
-            <p class="empty-title">No songs found</p>
-            <p class="empty-desc">
-              @if (searchQuery()) {
-                No tracks match your search "{{ searchQuery() }}". Try a different keyword.
-              } @else {
-                Your music library is currently empty.
-              }
-            </p>
-          </div>
-        } @else {
-          <table class="songs-table" role="grid" aria-label="Songs list">
-            <thead>
-              <tr>
-                <th class="col-index">#</th>
-                <th class="col-title sortable" (click)="toggleSort('title')" [attr.aria-sort]="getAriaSort('title')">
-                  <span>Title</span>
-                  @if (sortColumn() === 'title') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
-                  }
-                </th>
-                <th class="col-artist sortable" (click)="toggleSort('artist')" [attr.aria-sort]="getAriaSort('artist')">
-                  <span>Artist</span>
-                  @if (sortColumn() === 'artist') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
-                  }
-                </th>
-                <th class="col-album sortable" (click)="toggleSort('album')" [attr.aria-sort]="getAriaSort('album')">
-                  <span>Album</span>
-                  @if (sortColumn() === 'album') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
-                  }
-                </th>
-                <th class="col-duration sortable" (click)="toggleSort('duration')" [attr.aria-sort]="getAriaSort('duration')">
-                  <span>Time</span>
-                  @if (sortColumn() === 'duration') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
-                  }
-                </th>
-                <th class="col-codec sortable" (click)="toggleSort('codec')" [attr.aria-sort]="getAriaSort('codec')">
-                  <span>Codec</span>
-                  @if (sortColumn() === 'codec') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
-                  }
-                </th>
-                <th class="col-quality sortable" (click)="toggleSort('sampleRate')" [attr.aria-sort]="getAriaSort('sampleRate')">
-                  <span>Sample Rate</span>
-                  @if (sortColumn() === 'sampleRate') {
-                    <span class="sort-indicator">
-                      <app-icon [name]="sortDirection() === 'asc' ? 'arrow-up' : 'arrow-down'" [size]="12" />
-                    </span>
-                  }
-                </th>
-                <th class="col-actions"><span class="sr-only">Actions</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (track of filteredTracks(); track track.id; let i = $index) {
-                <tr
-                  class="song-row"
-                  [class.selected]="selectedTrackId() === track.id"
-                  [class.playing]="player.currentTrack()?.id === track.id"
-                  [class.unavailable]="!track.isAvailable"
-                  (click)="onSelectTrack(track)"
-                  (dblclick)="onPlayTrack(track, i)"
-                  (keydown.enter)="onPlayTrack(track, i)"
-                  tabindex="0"
-                  role="row">
-                  <!-- # Index / Playing Indicator -->
-                  <td class="col-index">
-                    @if (player.currentTrack()?.id === track.id) {
-                      <div class="playing-indicator" title="Currently Playing">
-                        @if (player.isPlaying()) {
-                          <span class="bar bar-1"></span>
-                          <span class="bar bar-2"></span>
-                          <span class="bar bar-3"></span>
-                        } @else {
-                          <app-icon name="pause" [size]="10" class="pause-icon" />
-                        }
-                      </div>
-                    } @else {
-                      <span class="row-num">{{ i + 1 }}</span>
-                    }
-                  </td>
-
-                  <!-- Title with Artwork -->
-                  <td class="col-title">
-                    <div class="title-cell">
-                      @if (track.artwork) {
-                        <img [src]="track.artwork" [alt]="track.title" class="thumb-img" />
-                      } @else {
-                        <div class="thumb-placeholder" aria-hidden="true">
-                          <app-icon name="music" [size]="16" />
-                        </div>
-                      }
-                      <div class="title-text-group">
-                        <span class="track-name truncate" [title]="track.title">
-                          {{ track.title }}
-                        </span>
-                        @if (!track.isAvailable) {
-                          <span class="badge-unavailable" title="File not found or missing from disk">
-                            Unavailable
-                          </span>
-                        }
-                      </div>
-                    </div>
-                  </td>
-
-                  <!-- Artist -->
-                  <td class="col-artist truncate" [title]="track.artist || 'Unknown Artist'">
-                    {{ track.artist || 'Unknown Artist' }}
-                  </td>
-
-                  <!-- Album -->
-                  <td class="col-album truncate" [title]="track.album || 'Unknown Album'">
-                    {{ track.album || 'Unknown Album' }}
-                  </td>
-
-                  <!-- Duration -->
-                  <td class="col-duration">
-                    {{ track.duration | duration }}
-                  </td>
-
-                  <!-- Codec Badge -->
-                  <td class="col-codec">
-                    <span class="badge-codec" [class.hi-res]="isHiRes(track)">
-                      {{ track.codec || 'UNKNOWN' }}
-                    </span>
-                  </td>
-
-                  <!-- Sample Rate & Bit Depth -->
-                  <td class="col-quality">
-                    <span class="quality-spec">
-                      {{ formatSampleRate(track.sampleRate) }}
-                      @if (track.bitDepth) {
-                        <span class="bit-depth">/ {{ track.bitDepth }}-bit</span>
-                      }
-                    </span>
-                  </td>
-
-                  <!-- Row Actions -->
-                  <td class="col-actions" (click)="$event.stopPropagation()">
-                    <div class="row-actions">
-                      <button
-                        type="button"
-                        class="row-action-btn"
-                        (click)="onPlayNext(track)"
-                        title="Play Next"
-                        aria-label="Play Next">
-                        <app-icon name="skip-forward" [size]="14" />
-                      </button>
-                      <button
-                        type="button"
-                        class="row-action-btn"
-                        (click)="onAddToQueue(track)"
-                        title="Add to Queue"
-                        aria-label="Add to Queue">
-                        <app-icon name="plus" [size]="14" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        }
-      </div>
-    </div>
-  `,
-  styles: [`
-    .songs-container {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      overflow: hidden;
-      padding: var(--space-6);
-      background: var(--bg-app);
-    }
-
-    .songs-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: var(--space-4);
-      margin-bottom: var(--space-4);
-      flex-shrink: 0;
-      flex-wrap: wrap;
-    }
-
-    .title-area h1 {
-      font-size: var(--font-size-2xl);
-      font-weight: 700;
-      letter-spacing: -0.02em;
-    }
-
-    .track-count {
-      font-size: var(--font-size-xs);
-      color: var(--text-muted);
-      margin-top: 2px;
-      display: block;
-    }
-
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-    }
-
-    .action-btn {
-      height: 36px;
-      padding: 0 var(--space-4);
-      border-radius: var(--radius-md);
-      font-size: var(--font-size-sm);
-      font-weight: 600;
-      display: inline-flex;
-      align-items: center;
-      gap: var(--space-2);
-      transition: background var(--transition-fast), transform var(--transition-fast);
-    }
-
-    .action-btn.primary {
-      background: var(--accent-primary);
-      color: #ffffff;
-    }
-
-    .action-btn.primary:hover:not(:disabled) {
-      background: var(--accent-hover);
-    }
-
-    .action-btn.secondary {
-      background: var(--bg-surface);
-      color: var(--text-primary);
-      border: 1px solid var(--border-default);
-    }
-
-    .action-btn.secondary:hover:not(:disabled) {
-      background: var(--bg-surface-hover);
-    }
-
-    .search-box {
-      position: relative;
-      display: flex;
-      align-items: center;
-      width: 280px;
-    }
-
-    .search-icon {
-      position: absolute;
-      left: var(--space-3);
-      color: var(--text-muted);
-      pointer-events: none;
-    }
-
-    .search-box input {
-      width: 100%;
-      height: 36px;
-      padding-left: 36px;
-      padding-right: 32px;
-      background: var(--bg-surface);
-      border: 1px solid var(--border-default);
-      border-radius: var(--radius-md);
-      font-size: var(--font-size-sm);
-      color: var(--text-primary);
-    }
-
-    .clear-search-btn {
-      position: absolute;
-      right: var(--space-2);
-      width: 24px;
-      height: 24px;
-      font-size: 16px;
-      color: var(--text-muted);
-    }
-
-    .notice-toast {
-      background: rgba(239, 68, 68, 0.15);
-      border: 1px solid var(--status-error);
-      color: #fca5a5;
-      padding: var(--space-2) var(--space-4);
-      border-radius: var(--radius-md);
-      margin-bottom: var(--space-3);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      font-size: var(--font-size-sm);
-    }
-
-    .table-scroll-container {
-      flex: 1;
-      overflow-y: auto;
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      background: var(--bg-surface);
-    }
-
-    .songs-table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: var(--font-size-sm);
-    }
-
-    .songs-table thead {
-      position: sticky;
-      top: 0;
-      background: var(--bg-elevated);
-      z-index: 2;
-      border-bottom: 1px solid var(--border-default);
-    }
-
-    .songs-table th {
-      padding: var(--space-3) var(--space-4);
-      color: var(--text-muted);
-      font-weight: 600;
-      font-size: var(--font-size-xs);
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      user-select: none;
-    }
-
-    .songs-table th.sortable {
-      cursor: pointer;
-    }
-
-    .songs-table th.sortable:hover {
-      color: var(--text-primary);
-    }
-
-    .sort-indicator {
-      margin-left: var(--space-1);
-      color: var(--accent-primary);
-    }
-
-    .song-row {
-      height: 48px;
-      border-bottom: 1px solid var(--border-subtle);
-      cursor: pointer;
-      transition: background var(--transition-fast);
-    }
-
-    .song-row:hover {
-      background: var(--bg-surface-hover);
-    }
-
-    .song-row.selected {
-      background: var(--bg-surface-active);
-    }
-
-    .song-row.playing {
-      color: var(--accent-primary);
-    }
-
-    .song-row.playing .track-name {
-      color: var(--accent-primary);
-      font-weight: 600;
-    }
-
-    .song-row.unavailable {
-      opacity: 0.45;
-    }
-
-    .songs-table td {
-      padding: var(--space-2) var(--space-4);
-      vertical-align: middle;
-    }
-
-    .col-index { width: 48px; text-align: center; }
-    .col-title { min-width: 240px; }
-    .col-artist { width: 180px; }
-    .col-album { width: 200px; }
-    .col-duration { width: 80px; font-family: var(--font-family-mono); }
-    .col-codec { width: 100px; }
-    .col-quality { width: 140px; font-family: var(--font-family-mono); }
-    .col-actions { width: 80px; text-align: right; }
-
-    .title-cell {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3);
-    }
-
-    .thumb-img, .thumb-placeholder {
-      width: 32px;
-      height: 32px;
-      border-radius: var(--radius-sm);
-      flex-shrink: 0;
-      object-fit: cover;
-    }
-
-    .thumb-placeholder {
-      background: var(--bg-elevated);
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 16px;
-    }
-
-    .title-text-group {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-      min-width: 0;
-    }
-
-    .track-name {
-      font-weight: 500;
-      color: var(--text-primary);
-    }
-
-    .badge-unavailable {
-      font-size: 10px;
-      background: rgba(239, 68, 68, 0.2);
-      color: #fca5a5;
-      padding: 1px 6px;
-      border-radius: var(--radius-sm);
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-
-    .badge-codec {
-      font-size: 10px;
-      padding: 2px 6px;
-      border-radius: var(--radius-sm);
-      background: var(--bg-elevated);
-      color: var(--text-secondary);
-      font-weight: 700;
-      font-family: var(--font-family-mono);
-      letter-spacing: 0.05em;
-    }
-
-    .badge-codec.hi-res {
-      background: var(--color-accent-muted);
-      color: var(--color-text-accent);
-      border: 1px solid var(--color-accent-glow);
-    }
-
-    .quality-spec {
-      font-size: var(--font-size-xs);
-      color: var(--text-secondary);
-    }
-
-    .bit-depth {
-      color: var(--text-muted);
-    }
-
-    .row-actions {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: var(--space-1);
-      opacity: 0;
-      transition: opacity var(--transition-fast);
-    }
-
-    .song-row:hover .row-actions {
-      opacity: 1;
-    }
-
-    .row-action-btn {
-      width: 28px;
-      height: 28px;
-      border-radius: var(--radius-sm);
-      color: var(--text-muted);
-      transition: color var(--transition-fast), background var(--transition-fast);
-    }
-
-    .row-action-btn:hover {
-      color: var(--text-primary);
-      background: var(--bg-surface-active);
-    }
-
-    /* Animated playing bars */
-    .playing-indicator {
-      display: inline-flex;
-      align-items: flex-end;
-      gap: 2px;
-      height: 14px;
-    }
-
-    .bar {
-      width: 3px;
-      background: var(--accent-primary);
-      border-radius: 1px;
-      animation: equalize 1s infinite alternate ease-in-out;
-    }
-
-    .bar-1 { height: 6px; animation-delay: 0.1s; }
-    .bar-2 { height: 14px; animation-delay: 0.3s; }
-    .bar-3 { height: 9px; animation-delay: 0.2s; }
-
-    @keyframes equalize {
-      0% { height: 3px; }
-      100% { height: 14px; }
-    }
-
-    .pause-icon {
-      color: var(--color-accent);
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .loading-state, .empty-state, .error-state {
-      padding: var(--space-10);
-      text-align: center;
-      color: var(--text-muted);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--space-3);
-    }
-
-    .error-state {
-      color: var(--status-error);
-    }
-
-    .error-title {
-      font-weight: 700;
-      font-size: var(--font-size-md);
-      color: var(--text-primary);
-    }
-
-    .error-desc {
-      font-size: var(--font-size-sm);
-      color: var(--status-error);
-      max-width: 420px;
-    }
-
-    .btn-retry {
-      padding: var(--space-2) var(--space-5);
-      border-radius: var(--radius-md);
-      background: var(--bg-elevated);
-      color: var(--text-primary);
-      border: 1px solid var(--border-subtle);
-      font-weight: 500;
-      cursor: pointer;
-      transition: background var(--transition-fast), border-color var(--transition-fast);
-    }
-
-    .btn-retry:hover {
-      background: var(--bg-card);
-      border-color: var(--accent-primary);
-    }
-
-    .spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid rgba(255, 255, 255, 0.1);
-      border-top-color: var(--accent-primary);
-      border-radius: 50%;
-      animation: spin 800ms linear infinite;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .empty-title {
-      font-weight: 700;
-      font-size: var(--font-size-md);
-      color: var(--text-primary);
-    }
-
-    @media (max-width: 900px) {
-      .col-codec, .col-quality {
-        display: none;
-      }
-      .col-album {
-        max-width: 140px;
-      }
-      .songs-container {
-        padding: var(--space-4);
-      }
-    }
-  `]
+  imports: [CommonModule, FormsModule, DurationPipe, IconComponent, BrowseFilterPopoverComponent],
+  templateUrl: './songs.component.html',
+  styleUrl: './songs.component.scss'
 })
 export class SongsComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
+  private readonly destroyRef = inject(DestroyRef);
   readonly player = inject(PlayerService);
 
   readonly tracks = signal<Track[]>([]);
@@ -687,6 +33,23 @@ export class SongsComponent implements OnInit {
   readonly searchQuery = signal<string>('');
   readonly sortColumn = signal<SortColumn>('title');
   readonly sortDirection = signal<SortDirection>('asc');
+  readonly artistFilter = signal('');
+  readonly albumFilter = signal('');
+  readonly yearFilter = signal('');
+  readonly artistOptions = computed(() => this.textOptions(this.tracks().map((track) => track.artist), this.artistFilter(), UNKNOWN_ARTIST));
+  readonly albumOptions = computed(() => this.textOptions(this.tracks().map((track) => track.album), this.albumFilter(), UNKNOWN_ALBUM));
+  readonly yearOptions = computed(() => {
+    const selected = this.yearFilter();
+    return [...new Set([
+      ...this.tracks().map((track) => track.year).filter((year): year is number => year !== null),
+      ...(selected && selected !== UNKNOWN_YEAR ? [Number(selected)] : []),
+    ])].sort((a, b) => b - a);
+  });
+  readonly hasUnknownArtist = computed(() => this.artistFilter() === UNKNOWN_ARTIST || this.tracks().some((track) => !track.artist));
+  readonly hasUnknownAlbum = computed(() => this.albumFilter() === UNKNOWN_ALBUM || this.tracks().some((track) => !track.album));
+  readonly hasUnknownYear = computed(() => this.yearFilter() === UNKNOWN_YEAR || this.tracks().some((track) => track.year === null));
+  readonly activeFilterCount = computed(() => Number(Boolean(this.artistFilter())) + Number(Boolean(this.albumFilter())) + Number(Boolean(this.yearFilter())));
+  readonly hasFilters = computed(() => Boolean(this.searchQuery().trim() || this.activeFilterCount()));
   readonly selectedTrackId = signal<string | null>(null);
   readonly noticeMessage = signal<string | null>(null);
 
@@ -694,61 +57,63 @@ export class SongsComponent implements OnInit {
     const list = this.tracks();
     const query = this.searchQuery().trim().toLowerCase();
 
-    // 1. Search Filter
-    let result = list;
-    if (query) {
-      result = result.filter((t) => {
-        const titleMatch = t.title.toLowerCase().includes(query);
-        const artistMatch = (t.artist || '').toLowerCase().includes(query);
-        const albumMatch = (t.album || '').toLowerCase().includes(query);
-        return titleMatch || artistMatch || albumMatch;
-      });
-    }
-
-    // 2. Sort
+    const artist = this.artistFilter();
+    const album = this.albumFilter();
+    const year = this.yearFilter();
     const col = this.sortColumn();
     const dir = this.sortDirection() === 'asc' ? 1 : -1;
 
-    return [...result].sort((a, b) => {
-      let valA: string | number = '';
-      let valB: string | number = '';
-
-      switch (col) {
-        case 'title':
-          valA = a.title.toLowerCase();
-          valB = b.title.toLowerCase();
-          break;
-        case 'artist':
-          valA = (a.artist || '').toLowerCase();
-          valB = (b.artist || '').toLowerCase();
-          break;
-        case 'album':
-          valA = (a.album || '').toLowerCase();
-          valB = (b.album || '').toLowerCase();
-          break;
-        case 'duration':
-          valA = a.duration;
-          valB = b.duration;
-          break;
-        case 'codec':
-          valA = (a.codec || '').toLowerCase();
-          valB = (b.codec || '').toLowerCase();
-          break;
-        case 'sampleRate':
-          valA = a.sampleRate || 0;
-          valB = b.sampleRate || 0;
-          break;
+    return list.filter((track) =>
+      (!query || track.title.toLowerCase().includes(query) || (track.artist || '').toLowerCase().includes(query) || (track.album || '').toLowerCase().includes(query)) &&
+      (!artist || (artist === UNKNOWN_ARTIST ? !track.artist : track.artist === artist)) &&
+      (!album || (album === UNKNOWN_ALBUM ? !track.album : track.album === album)) &&
+      (!year || (year === UNKNOWN_YEAR ? track.year === null : track.year === Number(year)))
+    ).sort((a, b) => {
+      let comparison = 0;
+      if (col === 'title') comparison = compareNames(a.title, b.title);
+      if (col === 'artist' || col === 'album' || col === 'codec') {
+        const first = col === 'artist' ? a.artist : col === 'album' ? a.album : a.codec;
+        const second = col === 'artist' ? b.artist : col === 'album' ? b.album : b.codec;
+        if (!first) return second ? 1 : this.compareTrackFallback(a, b);
+        if (!second) return -1;
+        comparison = compareNames(first, second);
       }
-
-      if (valA < valB) return -1 * dir;
-      if (valA > valB) return 1 * dir;
-      return 0;
+      if (col === 'duration') comparison = a.duration - b.duration;
+      if (col === 'sampleRate') {
+        if (a.sampleRate === null) return b.sampleRate === null ? this.compareTrackFallback(a, b) : 1;
+        if (b.sampleRate === null) return -1;
+        comparison = a.sampleRate - b.sampleRate;
+      }
+      return comparison * dir || this.compareTrackFallback(a, b);
     });
   });
+
+  private textOptions(values: (string | null)[], selected: string, unknown: string): string[] {
+    return [...new Set([
+      ...values.filter((value): value is string => Boolean(value)),
+      ...(selected && selected !== unknown ? [selected] : []),
+    ])].sort(compareNames);
+  }
+
+  private compareTrackFallback(a: Track, b: Track): number {
+    return compareNames(a.title, b.title) || compareNames(a.id, b.id);
+  }
+
+  clearFilters(): void {
+    this.artistFilter.set('');
+    this.albumFilter.set('');
+    this.yearFilter.set('');
+  }
 
   readonly errorMessage = signal<string | null>(null);
 
   async ngOnInit(): Promise<void> {
+    let wasScanning = false;
+    this.libraryGateway.scanProgress$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((progress) => {
+      const justFinished = wasScanning && !progress.isScanning;
+      wasScanning = progress.isScanning;
+      if (justFinished) void this.loadSongs();
+    });
     await this.loadSongs();
   }
 

@@ -54,6 +54,32 @@ describe('SpectrumVisualizerComponent', () => {
     expect(analysis.prepareCount).toBe(1);
     fixture.destroy();
   });
+
+  it('debounces repeated canvas resize notifications', () => {
+    jasmine.clock().install();
+    try {
+      const fixture = TestBed.createComponent(SpectrumVisualizerComponent);
+      fixture.detectChanges();
+      const component = fixture.componentInstance as unknown as {
+        scheduleCanvasResize(): void;
+        cancelCanvasResize(): void;
+        resizeCanvas(): void;
+      };
+      component.cancelCanvasResize();
+      const resizeCanvas = spyOn(component, 'resizeCanvas').and.callThrough();
+
+      component.scheduleCanvasResize();
+      component.scheduleCanvasResize();
+      component.scheduleCanvasResize();
+      jasmine.clock().tick(119);
+      expect(resizeCanvas).not.toHaveBeenCalled();
+      jasmine.clock().tick(1);
+      expect(resizeCanvas).toHaveBeenCalledTimes(1);
+      fixture.destroy();
+    } finally {
+      jasmine.clock().uninstall();
+    }
+  });
 });
 
 function track(): Track {

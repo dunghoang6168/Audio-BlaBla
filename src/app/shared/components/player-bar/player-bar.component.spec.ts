@@ -40,6 +40,27 @@ describe('PlayerBarComponent (Keyboard & Controls)', () => {
     expect(component).toBeTruthy();
   });
 
+  it('should omit source quality while keeping volume and queue controls for an active track', () => {
+    playerService.currentTrack.set(testTrack);
+    fixture.detectChanges();
+
+    const playerBar = fixture.nativeElement as HTMLElement;
+    const muteButton = playerBar.querySelector('[aria-label="Mute or Unmute"]') as HTMLButtonElement;
+    const queueButton = playerBar.querySelector('.queue-btn') as HTMLButtonElement;
+    const toggleQueueSpy = spyOn(component.toggleQueue, 'emit');
+
+    expect(playerBar.querySelector('.quality-tag')).toBeNull();
+    expect(playerBar.textContent).not.toContain('SOURCE QUALITY');
+    expect(playerBar.querySelector('.volume-slider')).not.toBeNull();
+    expect(muteButton).not.toBeNull();
+    expect(queueButton).not.toBeNull();
+
+    muteButton.click();
+    queueButton.click();
+    expect(playerService.isMuted()).toBeTrue();
+    expect(toggleQueueSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('should keep the play button aligned to the same size as transport buttons', () => {
     const controlButton = fixture.nativeElement.querySelector('.ctrl-btn') as HTMLButtonElement;
     const playButton = fixture.nativeElement.querySelector('.play-pause-btn') as HTMLButtonElement;
@@ -122,6 +143,55 @@ describe('PlayerBarComponent (Keyboard & Controls)', () => {
 
     expect(event.defaultPrevented).toBeTrue();
     expect(seekSpy).toHaveBeenCalledWith(100);
+  });
+
+  it('should expose a native volume slider and update volume continuously from input events', () => {
+    const slider = fixture.nativeElement.querySelector('.volume-slider') as HTMLInputElement;
+    const setVolumeSpy = spyOn(playerService, 'setVolume');
+
+    expect(slider.type).toBe('range');
+    expect(slider.min).toBe('0');
+    expect(slider.max).toBe('100');
+    expect(slider.step).toBe('1');
+    expect(slider.value).toBe('80');
+    expect(slider.getAttribute('aria-valuetext')).toBe('80 percent');
+
+    slider.value = '37';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(setVolumeSpy).toHaveBeenCalledWith(0.37);
+  });
+
+  it('should show adjustment state and keep the tooltip synchronized with volume', () => {
+    const shell = fixture.nativeElement.querySelector('.volume-slider-shell') as HTMLElement;
+    const slider = fixture.nativeElement.querySelector('.volume-slider') as HTMLInputElement;
+
+    slider.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    fixture.detectChanges();
+    expect(shell.classList).toContain('adjusting');
+    expect(shell.querySelector('.volume-tooltip')?.textContent?.trim()).toBe('80%');
+
+    slider.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+    fixture.detectChanges();
+    expect(shell.classList).not.toContain('adjusting');
+  });
+
+  it('should preserve the stored level while muted and unmute when adjusted above zero', () => {
+    playerService.setVolume(0.64);
+    playerService.toggleMute();
+    fixture.detectChanges();
+    const slider = fixture.nativeElement.querySelector('.volume-slider') as HTMLInputElement;
+    const tooltip = fixture.nativeElement.querySelector('.volume-tooltip') as HTMLElement;
+
+    expect(playerService.isMuted()).toBeTrue();
+    expect(slider.value).toBe('64');
+    expect(slider.getAttribute('aria-valuetext')).toBe('Muted, volume 64 percent');
+    expect(tooltip.textContent?.trim()).toBe('Muted · 64%');
+
+    slider.value = '45';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    fixture.detectChanges();
+    expect(playerService.volume()).toBe(0.45);
+    expect(playerService.isMuted()).toBeFalse();
   });
 
   it('should render a normal pause icon while playback is loading', async () => {

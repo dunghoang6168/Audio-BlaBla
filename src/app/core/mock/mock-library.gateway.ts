@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { LibraryGateway, LibrarySnapshot } from '../contracts/library.gateway';
-import { FolderNode, MusicFolder, ScanProgress } from '../models';
+import { FolderNode, MusicFolder, ScanProgress, TrackDetails } from '../models';
 import { MOCK_ALBUMS, MOCK_ARTISTS, MOCK_FOLDERS, MOCK_FOLDER_TREES, MOCK_TRACKS } from './fixtures/mock-data';
 
 @Injectable({ providedIn: 'root' })
@@ -33,6 +33,50 @@ export class MockLibraryGateway implements LibraryGateway {
   async getFolderTree(folderId: string): Promise<FolderNode | null> {
     await new Promise((resolve) => setTimeout(resolve, 30));
     return MOCK_FOLDER_TREES[folderId] ? JSON.parse(JSON.stringify(MOCK_FOLDER_TREES[folderId])) : null;
+  }
+
+  async getTrackDetails(trackId: string): Promise<TrackDetails> {
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const track = this.tracks.find((item) => item.id === trackId);
+    if (!track || !track.isAvailable) throw new Error('Track not found or unavailable');
+    return {
+      trackId: track.id,
+      metadata: {
+        title: track.title || null,
+        artists: track.artist ? [track.artist] : [],
+        album: track.album,
+        albumArtists: track.albumArtist ? [track.albumArtist] : [],
+        date: track.year ? String(track.year) : null,
+        year: track.year,
+        composers: track.artist ? [`${track.artist} Composer`] : [],
+        genres: track.genre ? [track.genre] : [],
+        trackNumber: track.trackNumber,
+        totalTracks: track.album ? this.tracks.filter((item) => item.album === track.album).length : null,
+        discNumber: track.discNumber,
+        totalDiscs: track.discNumber,
+      },
+      audio: {
+        duration: track.duration,
+        numberOfSamples: track.sampleRate ? Math.round(track.duration * track.sampleRate) : null,
+        sampleRate: track.sampleRate,
+        channels: track.channels,
+        bitsPerSample: track.bitDepth,
+        bitrate: track.bitrate,
+        codec: track.codec,
+        codecProfile: null,
+        container: track.codec,
+        lossless: track.codec ? ['FLAC', 'WAV'].includes(track.codec.toUpperCase()) : null,
+        encoderTool: 'Audio BlaBla mock metadata',
+        tagTypes: track.codec?.toUpperCase() === 'FLAC' ? ['vorbis'] : ['ID3v2.4'],
+        audioMd5: track.codec?.toUpperCase() === 'FLAC' ? '0123456789ABCDEFFEDCBA9876543210' : null,
+      },
+      file: {
+        fileName: track.fileName,
+        path: track.path,
+        fileSize: track.fileSize,
+        lastModified: track.lastModified,
+      },
+    };
   }
 
   async selectAndAddMusicFolders(): Promise<MusicFolder[]> {

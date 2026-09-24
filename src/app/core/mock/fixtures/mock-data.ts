@@ -25,24 +25,38 @@ export const MOCK_ARTISTS: Artist[] = [
       'track-sd-01', 'track-sd-02', 'track-sd-03', 'track-sd-04', 'track-sd-05', 'track-sd-06',
       'track-pr-01', 'track-pr-02', 'track-pr-03', 'track-pr-04', 'track-pr-05', 'track-pr-06',
     ],
+    onlineMetadata: {
+      musicBrainzId: '6c3c63ca-57d4-4880-bbb5-03e52c75ad02', matchMode: 'automatic',
+      biography: 'Aimer is a Japanese singer known for a distinctive husky voice and cinematic pop-rock songs.',
+      biographySourceUrl: 'https://en.wikipedia.org/wiki/Aimer', avatar: MOCK_ARTWORKS.sunDance,
+      avatarSourceUrl: 'https://en.wikipedia.org/wiki/Aimer', aboutImage: MOCK_ARTWORKS.pennyRain,
+      aboutImageSourceUrl: 'https://en.wikipedia.org/wiki/Aimer', sources: ['musicbrainz', 'wikipedia'], fetchedAt: 1704067200000,
+    },
+    customAvatar: null,
   },
   {
     id: 'artist-vu',
     name: 'Vũ.',
     albumIds: ['album-baotang'],
     trackIds: ['track-bt-01', 'track-bt-02', 'track-bt-03', 'track-bt-04', 'track-bt-05', 'track-bt-06'],
+    onlineMetadata: null,
+    customAvatar: null,
   },
   {
     id: 'artist-beethoven',
     name: 'Ludwig van Beethoven',
     albumIds: ['album-beethoven9'],
     trackIds: ['track-bth-d1-01', 'track-bth-d1-02', 'track-bth-d1-03', 'track-bth-d2-01', 'track-bth-d2-02'],
+    onlineMetadata: null,
+    customAvatar: null,
   },
   {
     id: 'artist-daftpunk',
     name: 'Daft Punk',
     albumIds: ['album-ram'],
     trackIds: ['track-ram-01', 'track-ram-02', 'track-ram-03', 'track-ram-04', 'track-ram-05', 'track-ram-06'],
+    onlineMetadata: null,
+    customAvatar: null,
   },
 ];
 

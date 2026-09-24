@@ -1,0 +1,106 @@
+
+    <div class="home-page">
+      <!-- Welcome Hero -->
+      <!-- <section class="welcome-hero">
+        <div class="hero-text">
+          <h1>Welcome to Audio BlaBla</h1>
+          <p class="subtitle">Your high-fidelity offline desktop music player. Browse by tags, artist discographies, or filesystem hierarchy.</p>
+        </div>
+      </section> -->
+
+      <!-- Library Statistics Counter Cards -->
+      <section class="stats-row">
+        <a routerLink="/songs" class="stat-card">
+          <div class="stat-icon-box songs">
+            <app-icon name="music" [size]="22" />
+          </div>
+          <div class="stat-meta">
+            <span class="stat-count">{{ tracksCount() }}</span>
+            <span class="stat-label">Tracks</span>
+          </div>
+        </a>
+
+        <a routerLink="/albums" class="stat-card">
+          <div class="stat-icon-box albums">
+            <app-icon name="disc" [size]="22" />
+          </div>
+          <div class="stat-meta">
+            <span class="stat-count">{{ albumsCount() }}</span>
+            <span class="stat-label">Albums</span>
+          </div>
+        </a>
+
+        <a routerLink="/artists" class="stat-card">
+          <div class="stat-icon-box artists">
+            <app-icon name="user" [size]="22" />
+          </div>
+          <div class="stat-meta">
+            <span class="stat-count">{{ artistsCount() }}</span>
+            <span class="stat-label">Artists</span>
+          </div>
+        </a>
+
+        <a routerLink="/folders" class="stat-card">
+          <div class="stat-icon-box folders">
+            <app-icon name="folder" [size]="22" />
+          </div>
+          <div class="stat-meta">
+            <span class="stat-count">{{ foldersCount() }}</span>
+            <span class="stat-label">Music Roots</span>
+          </div>
+        </a>
+      </section>
+
+      <!-- Featured Albums Section -->
+      <section class="home-section">
+        <div class="section-header">
+          <h2>Featured Albums</h2>
+          <a routerLink="/albums" class="see-all-link">See All &rarr;</a>
+        </div>
+
+        <div class="albums-grid" #albumsGrid>
+          @for (album of featuredAlbums(); track album.id) {
+            <div class="album-card" [routerLink]="['/albums', album.id]" tabindex="0" role="button">
+              <div class="cover-wrapper">
+                @if (album.artwork) {
+                  <img [src]="album.artwork" [alt]="album.title" class="cover-img" />
+                } @else {
+                  <div class="cover-placeholder" aria-hidden="true">
+                    <app-icon name="disc" [size]="36" />
+                  </div>
+                }
+
+                <button
+                  type="button"
+                  class="quick-play-btn"
+                  (click)="onPlayAlbum($event, album)"
+                  title="Play Album"
+                  aria-label="Play Album">
+                  <app-icon name="play" [size]="18" />
+                </button>
+              </div>
+              <h3 class="album-title truncate" [title]="album.title">{{ album.title }}</h3>
+              <p class="album-artist truncate">{{ album.artist || 'Unknown Artist' }}</p>
+            </div>
+          }
+        </div>
+      </section>
+
+      <!-- Quick Playlists Section -->
+      <section class="home-section">
+        <div class="section-header">
+          <h2>Playlists</h2>
+          <a routerLink="/playlists" class="see-all-link">Manage &rarr;</a>
+        </div>
+
+        <div class="playlists-row">
+          @for (pl of playlists(); track pl.id) {
+            <a [routerLink]="['/playlists', pl.id]" class="playlist-pill">
+              <app-icon name="list-music" [size]="16" class="pill-icon" />
+              <span class="pill-title truncate">{{ pl.name }}</span>
+              <span class="pill-count">({{ pl.entries.length }})</span>
+            </a>
+          }
+        </div>
+      </section>
+    </div>

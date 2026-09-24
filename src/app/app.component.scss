@@ -1,0 +1,31 @@
+
+    .app-layout {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      background: var(--color-canvas);
+      color: var(--color-text);
+      transition: background-color var(--transition-normal), color var(--transition-normal);
+    }
+
+    .workspace {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .main-content {
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--color-canvas);
+      position: relative;
+      container-type: inline-size;
+      container-name: main-content;
+      transition: background-color var(--transition-normal), color var(--transition-normal);
+    }

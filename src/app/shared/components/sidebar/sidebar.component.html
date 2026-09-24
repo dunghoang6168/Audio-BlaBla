@@ -1,0 +1,55 @@
+
+    <aside
+      class="sidebar"
+      [class.width-collapsed]="widthCollapsed()"
+      [class.content-collapsed]="contentCollapsed()"
+      [class.labels-hidden]="!labelsVisible()"
+      [class.animating]="isAnimating()"
+      [attr.data-phase]="phase()"
+      (transitionend)="onWidthTransitionEnd($event)">
+      <div class="sidebar-toggle-row">
+        <span class="sidebar-section-title">LIBRARY</span>
+        <button
+          type="button"
+          class="sidebar-toggle-btn"
+          (click)="toggleCollapse.emit()"
+          [title]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'"
+          [attr.aria-label]="isCollapsed() ? 'Expand sidebar' : 'Collapse sidebar'">
+          <app-icon [name]="isCollapsed() ? 'chevron-right' : 'chevron-left'" [size]="16" />
+        </button>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="nav-menu" aria-label="Main Navigation">
+        <a routerLink="/home" routerLinkActive="active" class="nav-item" title="Home">
+          <app-icon name="home" [size]="18" class="nav-icon" />
+          <span class="nav-label">Home</span>
+        </a>
+
+        <a routerLink="/songs" routerLinkActive="active" class="nav-item" title="Songs">
+          <app-icon name="music" [size]="18" class="nav-icon" />
+          <span class="nav-label">Songs</span>
+        </a>
+
+        <a routerLink="/albums" routerLinkActive="active" class="nav-item" title="Albums">
+          <app-icon name="disc" [size]="18" class="nav-icon" />
+          <span class="nav-label">Albums</span>
+        </a>
+
+        <a routerLink="/artists" routerLinkActive="active" class="nav-item" title="Artists">
+          <app-icon name="user" [size]="18" class="nav-icon" />
+          <span class="nav-label">Artists</span>
+        </a>
+
+        <a routerLink="/folders" routerLinkActive="active" class="nav-item" title="Folders">
+          <app-icon name="folder" [size]="18" class="nav-icon" />
+          <span class="nav-label">Folders</span>
+        </a>
+
+        <a routerLink="/playlists" routerLinkActive="active" class="nav-item" title="Playlists">
+          <app-icon name="list-music" [size]="18" class="nav-icon" />
+          <span class="nav-label">Playlists</span>
+        </a>
+      </nav>
+
+    </aside>
