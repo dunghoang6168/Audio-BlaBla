@@ -6,6 +6,7 @@ import { DatabaseService } from './services/database.service.js';
 import { ScannerService } from './services/scanner.service.js';
 import { TrackDetailsService } from './services/track-details.service.js';
 import { ArtistMetadataService } from './services/artist-metadata.service.js';
+import { migrateLegacyProfile } from './services/profile-migration.service.js';
 import { broadcastProgress, registerIpc } from './ipc/register-ipc.js';
 import { installProtocolHandlers, registerPrivilegedSchemes } from './protocols/register-protocols.js';
 
@@ -18,14 +19,14 @@ let mainWindow: BrowserWindowType | null = null;
 let database: DatabaseService | null = null;
 
 if (smokeTest) {
-  const smokeUserData = process.env['AUDIO_BLABLA_SMOKE_USER_DATA'];
+  const smokeUserData = process.env['AUDIO_LUTSTRA_SMOKE_USER_DATA'];
   if (!smokeUserData) throw new Error('Smoke test userData path was not provided by the launcher');
   app.setPath('userData', smokeUserData);
 }
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    name: 'audio-blabla-main',
+    name: 'audio-lutstra-main',
     windowStatePersistence: true,
     width: 1280,
     height: 800,
@@ -47,13 +48,13 @@ function createWindow(): void {
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event, target) => {
-    const allowed = target.startsWith('app://audio-blabla/') || (development && target.startsWith('http://localhost:4200/'));
+    const allowed = target.startsWith('app://audio-lutstra/') || (development && target.startsWith('http://localhost:4200/'));
     if (!allowed) event.preventDefault();
   });
   mainWindow.on('closed', () => { mainWindow = null; });
 
   if (development) void mainWindow.loadURL('http://localhost:4200/');
-  else void mainWindow.loadURL('app://audio-blabla/index.html');
+  else void mainWindow.loadURL('app://audio-lutstra/index.html');
 
   if (smokeTest) {
     mainWindow.webContents.once('did-finish-load', () => {
@@ -81,17 +82,21 @@ function createWindow(): void {
   }
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   const userData = app.getPath('userData');
-  database = new DatabaseService(path.join(userData, 'audio-blabla.sqlite'));
+  if (!smokeTest) {
+    const migratedFrom = await migrateLegacyProfile(userData, app.getPath('appData'));
+    if (migratedFrom) console.info('[profile] Migrated legacy library from', migratedFrom);
+  }
+  database = new DatabaseService(path.join(userData, 'audio-lutstra.sqlite'));
   const artwork = new ArtworkService(path.join(userData, 'artwork-cache'), database);
   const scanner = new ScannerService(database, artwork, (progress) => broadcastProgress(mainWindow, progress));
   const trackDetails = new TrackDetailsService(database);
   const artistMetadata = new ArtistMetadataService(database, artwork, (update) => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('artist-metadata:updated', update);
   });
-  const rendererRoot = path.join(app.getAppPath(), 'dist', 'audio-blabla', 'browser');
+  const rendererRoot = path.join(app.getAppPath(), 'dist', 'audio-lutstra', 'browser');
 
   installProtocolHandlers(database, rendererRoot, development);
   registerIpc(database, scanner, trackDetails, artistMetadata, () => mainWindow, development);

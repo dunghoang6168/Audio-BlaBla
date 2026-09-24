@@ -83,6 +83,6 @@ function handle(channel: string, listener: (event: IpcMainInvokeEvent, ...args: 
 
 function trustedSender(event: IpcMainInvokeEvent, development: boolean): boolean {
   const url = event.senderFrame?.url ?? '';
-  return url.startsWith('app://audio-blabla/') || (development && url.startsWith('http://localhost:4200/'));
+  return url.startsWith('app://audio-lutstra/') || (development && url.startsWith('http://localhost:4200/'));
 }
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }

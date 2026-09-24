@@ -1,6 +1,6 @@
-# Audio BlaBla
+# Audio Lutstra
 
-Audio BlaBla là ứng dụng nghe nhạc offline trên desktop, ưu tiên Windows. Dự án dùng Angular và TypeScript xuyên suốt, tập trung vào kiến trúc dễ hiểu, dễ bảo trì và đủ linh hoạt để thay playback engine trong tương lai.
+Audio Lutstra là ứng dụng nghe nhạc offline trên desktop, ưu tiên Windows. Dự án dùng Angular và TypeScript xuyên suốt, tập trung vào kiến trúc dễ hiểu, dễ bảo trì và đủ linh hoạt để thay playback engine trong tương lai.
 
 V1 quản lý thư mục nhạc trên máy, đọc metadata, duyệt thư viện theo Songs/Albums/Artists/Folders, quản lý playlist và playback queue, đồng thời phát audio bằng Chromium. Các tính năng audio native chuyên sâu không nằm trong phạm vi V1.
 
@@ -18,7 +18,7 @@ Phase 1 UI/UX, Phase 2 desktop integration và Phase 3 UI foundation đã hoàn 
 - Phase 3 bổ sung semantic design tokens, 8 theme preset (4 dark, 4 light), 6 accent color và bộ icon SVG tập trung qua `IconComponent`.
 - Phase 3.2 bổ sung real-time spectrum visualizer trên Now Playing, lấy dữ liệu FFT từ chính `HTMLAudioElement` qua Web Audio API.
 - Phase 3.3–3.5 bổ sung Track Properties, app header tích hợp, global search, Media Session cho phím media, metadata nghệ sĩ online và cấu trúc component TS/HTML/SCSS tách biệt.
-- Checkpoint hiện tại đạt 147 Angular tests, 22 backend integration tests, production build và Electron smoke test.
+- Checkpoint đổi tên đạt 147 Angular tests, 23 backend integration tests, production build và Electron smoke test.
 
 Nghiệm thu thủ công cơ bản trên Windows đã hoàn thành cho folder picker, scan library, playback, seek và chuyển bài. Dự án đã có cấu hình tạo NSIS installer và bản portable Windows nhưng chưa có app icon chính thức, code signing hoặc bản phát hành công khai. Kiểm thử mở rộng với library lớn, nhiều codec/container và các trường hợp filesystem bất thường tiếp tục được thực hiện khi cần.
 
@@ -88,7 +88,7 @@ Preload chỉ expose các hàm cụ thể. Renderer không nhận `ipcRenderer`,
 
 Hai custom protocol được đăng ký trước `app.ready`:
 
-- `app://audio-blabla/` phục vụ Angular production build và fallback Router.
+- `app://audio-lutstra/` phục vụ Angular production build và fallback Router.
 - `music://track/<trackId>` và `music://artwork/<hash>` phục vụ audio/artwork đã được cấp quyền.
 
 ## Cấu trúc thư mục
@@ -151,7 +151,7 @@ npm run build
 npm run electron
 ```
 
-Angular output nằm tại `dist/audio-blabla/`; Main và preload nằm tại `dist-electron/`. `npm run electron` build lại trước khi mở app và chưa tạo installer.
+Angular output nằm tại `dist/audio-lutstra/`; Main và preload nằm tại `dist-electron/`. `npm run electron` build lại trước khi mở app và chưa tạo installer.
 
 ### Đóng gói bản demo Windows
 
@@ -164,8 +164,8 @@ npm run package:win
 
 Artifact được tạo trong `release/`:
 
-- `Audio-BlaBla-Setup-0.1.0-x64.exe`: installer theo user, có shortcut Desktop/Start Menu và cho phép chọn thư mục cài đặt.
-- `Audio-BlaBla-Portable-0.1.0-x64.exe`: chạy trực tiếp, không cần cài đặt.
+- `Audio-Lutstra-Setup-0.1.0-x64.exe`: installer theo user, có shortcut Desktop/Start Menu và cho phép chọn thư mục cài đặt.
+- `Audio-Lutstra-Portable-0.1.0-x64.exe`: chạy trực tiếp, không cần cài đặt.
 
 Để tạo bản unpacked phục vụ kiểm tra nhanh mà không sinh installer:
 
@@ -198,7 +198,9 @@ Trên Windows, launcher sở hữu vòng đời của profile smoke test và ch�
 
 ## Persistence và scanning
 
-Database mặc định ở `app.getPath('userData')/audio-blabla.sqlite`; artwork nằm trong `userData/artwork-cache`. Audio binary không được lưu trong database.
+Database mặc định ở `app.getPath('userData')/audio-lutstra.sqlite`; artwork nằm trong `userData/artwork-cache`. Audio binary không được lưu trong database.
+
+Lần mở đầu tiên sau khi đổi tên, ứng dụng sao chép thư viện, playlist, settings và artwork từ profile Audio BlaBla gần đây nhất sang profile Audio Lutstra. Profile cũ được giữ nguyên. Bản sao chỉ được tạo nếu database Audio Lutstra chưa tồn tại; nếu chuyển dữ liệu thất bại, ứng dụng dừng khởi động để tránh mở một thư viện trống ngoài ý muốn.
 
 Track ID là SHA-256 của normalized canonical path. Trên Windows identity không phân biệt hoa thường. Scanner dùng `fileSize + lastModified` để bỏ qua metadata không đổi, giới hạn metadata concurrency ở 4 và ghi tối đa 100 tracks mỗi batch. Scan thành công mới reconcile file mất; root lỗi không xóa snapshot library cũ.
 

@@ -12,7 +12,7 @@ import { DatabaseService, StoredTrack } from '../services/database.service.js';
 const MBID = '11111111-1111-4111-8111-111111111111';
 
 test('artist metadata prefers Wikipedia text and image while using TheAudioDB fanart', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-artist-meta-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-artist-meta-'));
   const database = new DatabaseService(path.join(root, 'library.sqlite'));
   const artwork = new ArtworkService(path.join(root, 'artwork'), database);
   const updates: ArtistMetadataUpdate[] = [];
@@ -39,7 +39,7 @@ test('artist metadata prefers Wikipedia text and image while using TheAudioDB fa
 });
 
 test('artist metadata leaves ambiguous exact-name matches unresolved', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-artist-ambiguous-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-artist-ambiguous-'));
   const database = new DatabaseService(path.join(root, 'library.sqlite'));
   const artwork = new ArtworkService(path.join(root, 'artwork'), database);
   const updates: ArtistMetadataUpdate[] = [];
@@ -64,7 +64,7 @@ test('artist metadata leaves ambiguous exact-name matches unresolved', async () 
 });
 
 test('artist metadata falls back to TheAudioDB when the Wikimedia image is invalid', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-artist-image-fallback-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-artist-image-fallback-'));
   const database = new DatabaseService(path.join(root, 'library.sqlite'));
   const artwork = new ArtworkService(path.join(root, 'artwork'), database);
   let clock = 1_800_000_000_000;
@@ -88,7 +88,7 @@ test('artist metadata falls back to TheAudioDB when the Wikimedia image is inval
 });
 
 test('missing MusicBrainz relation resolves only a unique Wikidata P434 match', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-wikidata-mbid-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-wikidata-mbid-'));
   const database = new DatabaseService(path.join(root, 'library.sqlite'));
   let clock = 1_800_000_000_000;
   try {
@@ -106,7 +106,7 @@ test('missing MusicBrainz relation resolves only a unique Wikidata P434 match', 
 
 test('ambiguous or absent Wikidata P434 results do not select an entity', async () => {
   for (const ids of [[], ['Q123', 'Q999']]) {
-    const root = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-wikidata-ambiguous-'));
+    const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-wikidata-ambiguous-'));
     const database = new DatabaseService(path.join(root, 'library.sqlite'));
     let clock = 1_800_000_000_000;
     try {
@@ -122,7 +122,7 @@ test('ambiguous or absent Wikidata P434 results do not select an entity', async 
 });
 
 test('old negative cache is retried immediately with resolver v2', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-resolver-version-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-resolver-version-'));
   const database = new DatabaseService(path.join(root, 'library.sqlite'));
   let clock = 1_800_000_000_000;
   try {
@@ -141,7 +141,7 @@ test('old negative cache is retried immediately with resolver v2', async () => {
 });
 
 test('biography without an avatar uses the seven-day retry window', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-avatar-ttl-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-avatar-ttl-'));
   const database = new DatabaseService(path.join(root, 'library.sqlite'));
   let clock = 1_800_000_000_000;
   try {
@@ -159,7 +159,7 @@ test('biography without an avatar uses the seven-day retry window', async () => 
 });
 
 test('custom avatar survives metadata refresh and scan and rejects non-images', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-custom-artist-avatar-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-custom-artist-avatar-'));
   const database = new DatabaseService(path.join(root, 'library.sqlite'));
   const validPath = path.join(root, 'portrait.png');
   const invalidPath = path.join(root, 'fake.png');
@@ -187,7 +187,7 @@ test('custom avatar survives metadata refresh and scan and rejects non-images', 
 });
 
 test('v2 artist metadata migrates without losing existing cache', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-artist-migration-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-artist-migration-'));
   const databasePath = path.join(root, 'library.sqlite');
   const legacy = new DatabaseSync(databasePath);
   try {
@@ -210,7 +210,7 @@ test('v2 artist metadata migrates without losing existing cache', async () => {
 });
 
 test('offline refresh retains cached online and custom avatars', async () => {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-blabla-artist-offline-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-artist-offline-'));
   const database = new DatabaseService(path.join(root, 'library.sqlite'));
   let clock = 1_800_000_000_000;
   try {

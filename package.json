@@ -1,8 +1,8 @@
 {
-  "name": "audio-blabla",
+  "name": "audio-lutstra",
   "version": "0.1.0",
   "description": "A local-first desktop music library and player.",
-  "productName": "Audio BlaBla",
+  "productName": "Audio Lutstra",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -56,14 +56,14 @@
     "wait-on": "^8.0.4"
   },
   "build": {
-    "appId": "com.audioblabla.desktop",
-    "productName": "Audio BlaBla",
+    "appId": "com.audiolutstra.desktop",
+    "productName": "Audio Lutstra",
     "asar": true,
     "directories": {
       "output": "release"
     },
     "files": [
-      "dist/audio-blabla/**/*",
+      "dist/audio-lutstra/**/*",
       "dist-electron/**/*",
       "package.json"
     ],
@@ -84,17 +84,17 @@
       ]
     },
     "nsis": {
-      "artifactName": "Audio-BlaBla-Setup-${version}-${arch}.${ext}",
+      "artifactName": "Audio-Lutstra-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Audio BlaBla",
+      "shortcutName": "Audio Lutstra",
       "deleteAppDataOnUninstall": false
     },
     "portable": {
-      "artifactName": "Audio-BlaBla-Portable-${version}-${arch}.${ext}"
+      "artifactName": "Audio-Lutstra-Portable-${version}-${arch}.${ext}"
     }
   }
 }

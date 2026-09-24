@@ -43,5 +43,5 @@ export function installProtocolHandlers(database: DatabaseService, rendererRoot:
     return createFileResponse(canonical, request, track.mime, initiatorOrigin);
   });
 }
-function trustedInitiator(origin: string | undefined, development: boolean): boolean { return origin === 'app://audio-blabla' || (development && origin === 'http://localhost:4200'); }
+function trustedInitiator(origin: string | undefined, development: boolean): boolean { return origin === 'app://audio-lutstra' || (development && origin === 'http://localhost:4200'); }
 function response(status: number, message: string): Response { return new Response(message, { status, headers: { 'content-type': 'text/plain; charset=utf-8' } }); }
