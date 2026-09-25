@@ -1,4 +1,4 @@
-import { isAccentColor, isThemePreset } from '../../src/app/core/models/index.js';
+import { isAccentColor, isSongColumn, isThemePreset } from '../../src/app/core/models/index.js';
 
 export function validSettings(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid settings');
@@ -9,5 +9,10 @@ export function validSettings(value: unknown): Record<string, unknown> {
   if ('shuffle' in input) { if (typeof input['shuffle'] !== 'boolean') throw new Error('Invalid shuffle setting'); result['shuffle'] = input['shuffle']; }
   if ('themePreset' in input) { if (!isThemePreset(input['themePreset'])) throw new Error('Invalid theme preset'); result['themePreset'] = input['themePreset']; }
   if ('accentColor' in input) { if (!isAccentColor(input['accentColor'])) throw new Error('Invalid accent color'); result['accentColor'] = input['accentColor']; }
+  if ('hiddenSongColumns' in input) {
+    const columns = input['hiddenSongColumns'];
+    if (!Array.isArray(columns) || !columns.every(isSongColumn)) throw new Error('Invalid Songs columns');
+    result['hiddenSongColumns'] = [...new Set(columns)];
+  }
   return result;
 }

@@ -43,6 +43,7 @@ test('renamed app migrates the newest legacy library and artwork without changin
     assert.equal(await migrateLegacyProfile(targetRoot, appData), newerRoot);
     const migrated = new DatabaseService(path.join(targetRoot, 'audio-lutstra.sqlite'));
     assert.equal(migrated.getSettings().defaultVolume, 0.7);
+    assert.deepEqual(migrated.getSettings().hiddenSongColumns, []);
     assert.equal(migrated.resolveArtwork('a'.repeat(64))?.path, path.join(targetRoot, 'artwork-cache', 'cover.jpg'));
     migrated.close();
     assert.equal(await migrateLegacyProfile(targetRoot, appData), null);
@@ -58,6 +59,9 @@ test('settings IPC accepts allowlisted themes and rejects invalid values', () =>
   assert.deepEqual(validSettings({ themePreset: 'sage', accentColor: 'amber' }), { themePreset: 'sage', accentColor: 'amber' });
   assert.throws(() => validSettings({ themePreset: 'light' }), /Invalid theme preset/);
   assert.throws(() => validSettings({ accentColor: '#ffffff' }), /Invalid accent color/);
+  assert.deepEqual(validSettings({ hiddenSongColumns: ['artist', 'codec', 'artist'] }), { hiddenSongColumns: ['artist', 'codec'] });
+  assert.throws(() => validSettings({ hiddenSongColumns: ['title'] }), /Invalid Songs columns/);
+  assert.throws(() => validSettings({ hiddenSongColumns: 'artist' }), /Invalid Songs columns/);
 });
 
 test('IPC identifier validation rejects malformed track IDs', () => {
@@ -79,13 +83,17 @@ test('artist metadata IPC validates identifiers and strict source allowlists', (
   assert.throws(() => validMusicBrainzId('../artist'), /Invalid MusicBrainz identifier/);
 
   const wikipedia = 'https://en.wikipedia.org/wiki/Aimer';
+  const vietnameseWikipedia = 'https://vi.wikipedia.org/wiki/MCK';
   assert.equal(validWikipediaOverride(wikipedia), wikipedia);
+  assert.equal(validWikipediaOverride(vietnameseWikipedia), vietnameseWikipedia);
   assert.equal(validWikipediaOverride(null), null);
-  assert.throws(() => validWikipediaOverride('https://vi.wikipedia.org/wiki/Aimer'), /Invalid Wikipedia URL/);
+  assert.throws(() => validWikipediaOverride('https://fakevi.wikipedia.org/wiki/Aimer'), /Invalid Wikipedia URL/);
   assert.throws(() => validWikipediaOverride('http://en.wikipedia.org/wiki/Aimer'), /Invalid Wikipedia URL/);
 
   assert.equal(validArtistSourceUrl('https://musicbrainz.org/artist/' + mbid), 'https://musicbrainz.org/artist/' + mbid);
+  assert.equal(validArtistSourceUrl(vietnameseWikipedia), vietnameseWikipedia);
   assert.equal(validArtistSourceUrl('https://www.wikidata.org/wiki/Q1'), 'https://www.wikidata.org/wiki/Q1');
+  assert.throws(() => validArtistSourceUrl('http://vi.wikipedia.org/wiki/MCK'), /Untrusted source URL/);
   assert.throws(() => validArtistSourceUrl('https://example.com/artist'), /Untrusted source URL/);
 });
 
@@ -326,7 +334,7 @@ test('scanner, reconciliation, playlists, settings and database persistence', as
     const withDuplicates = database.addPlaylistTracks(playlist.id, [firstTrackId, firstTrackId]);
     assert.equal(withDuplicates.entries.length, 2);
     assert.notEqual(withDuplicates.entries[0]?.id, withDuplicates.entries[1]?.id);
-    database.saveSettings({ defaultVolume: 0.35, repeatMode: 'all', shuffle: true, themePreset: 'ocean', accentColor: 'cyan' });
+    database.saveSettings({ defaultVolume: 0.35, repeatMode: 'all', shuffle: true, themePreset: 'ocean', accentColor: 'cyan', hiddenSongColumns: ['artist', 'codec'] });
 
     database.close();
     database = new DatabaseService(databasePath);
@@ -335,6 +343,7 @@ test('scanner, reconciliation, playlists, settings and database persistence', as
     assert.equal(database.getSettings().repeatMode, 'all');
     assert.equal(database.getSettings().themePreset, 'ocean');
     assert.equal(database.getSettings().accentColor, 'cyan');
+    assert.deepEqual(database.getSettings().hiddenSongColumns, ['artist', 'codec']);
 
     await unlink(audioPath);
     const reopenedScanner = new ScannerService(database, new ArtworkService(artworkPath, database), () => undefined);

@@ -3,7 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Subject } from 'rxjs';
 import { ARTIST_METADATA_GATEWAY, LIBRARY_GATEWAY } from '../../core/contracts';
-import { Artist, ArtistMetadataUpdate, ArtistOnlineMetadata } from '../../core/models';
+import { Artist, ArtistMetadataUpdate, ArtistOnlineMetadata, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { ArtistsComponent } from './artists.component';
 
@@ -34,7 +34,7 @@ describe('ArtistsComponent online metadata', () => {
       providers: [
         provideRouter([]),
         { provide: LIBRARY_GATEWAY, useValue: { getLibrary, scanProgress$: scanProgress } },
-        { provide: PlayerService, useValue: { currentTrack: signal(null), playCollection: jasmine.createSpy('playCollection') } },
+        { provide: PlayerService, useValue: { currentTrack: signal(null), setShuffle: jasmine.createSpy('setShuffle'), playCollection: jasmine.createSpy('playCollection') } },
         {
           provide: ARTIST_METADATA_GATEWAY,
           useValue: {
@@ -63,6 +63,22 @@ describe('ArtistsComponent online metadata', () => {
     expect(refreshMissing).toHaveBeenCalledTimes(1);
     expect(fixture.nativeElement.querySelector('.initial').textContent).toContain('A');
     expect(fixture.nativeElement.querySelector('.artist-avatar-img')).toBeNull();
+  });
+
+  it('plays artist albums in release order with shuffle disabled', () => {
+    const component = fixture.componentInstance;
+    const player = TestBed.inject(PlayerService);
+    const older = { id: 'older', title: 'Older', artist: artist.name, year: 2020, artwork: null, trackIds: ['older-2', 'older-1'] };
+    const newer = { id: 'newer', title: 'Newer', artist: artist.name, year: 2024, artwork: null, trackIds: ['newer-1'] };
+    const tracks = [makeTrack('newer-1', 1), makeTrack('older-2', 2), makeTrack('older-1', 1)];
+    const playableArtist = { ...artist, albumIds: ['newer', 'older'], trackIds: tracks.map((track) => track.id) };
+    component.allAlbums.set([newer, older]);
+    component.allTracks.set(tracks);
+
+    component.onPlayArtist(new MouseEvent('click'), playableArtist);
+
+    expect(player.setShuffle).toHaveBeenCalledOnceWith(false);
+    expect(player.playCollection).toHaveBeenCalledOnceWith([tracks[2], tracks[1], tracks[0]], 0);
   });
 
   it('patches one card from an update without reloading or resetting search', () => {
@@ -169,6 +185,15 @@ function createArtist(id: string, name: string, albums: number, tracks: number):
 
 function artistIds(fixture: ComponentFixture<ArtistsComponent>): string[] {
   return fixture.componentInstance.filteredArtists().map((artist) => artist.id);
+}
+
+function makeTrack(id: string, trackNumber: number): Track {
+  return {
+    id, path: id, fileName: id, title: id, artist: 'Artist One', albumArtist: 'Artist One',
+    album: null, genre: null, year: null, trackNumber, discNumber: 1, duration: 1,
+    codec: null, bitrate: null, sampleRate: null, bitDepth: null, channels: null,
+    artwork: null, fileSize: null, lastModified: null, isAvailable: true,
+  };
 }
 
 function createMetadata(): ArtistOnlineMetadata {

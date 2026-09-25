@@ -33,6 +33,17 @@ export function isAccentColor(value: unknown): value is AccentColor {
   return typeof value === 'string' && (ACCENT_COLORS as readonly string[]).includes(value);
 }
 
+export const OPTIONAL_SONG_COLUMNS = ['index', 'artist', 'album', 'duration', 'codec', 'sampleRate', 'actions'] as const;
+export type SongColumn = (typeof OPTIONAL_SONG_COLUMNS)[number];
+
+export function isSongColumn(value: unknown): value is SongColumn {
+  return typeof value === 'string' && (OPTIONAL_SONG_COLUMNS as readonly string[]).includes(value);
+}
+
+export function normalizeHiddenSongColumns(value: unknown): SongColumn[] {
+  return Array.isArray(value) ? [...new Set(value.filter(isSongColumn))] : [];
+}
+
 export interface Settings {
   musicFolders: MusicFolder[];
   defaultVolume: number; // 0.0 to 1.0
@@ -40,4 +51,5 @@ export interface Settings {
   shuffle: boolean;
   themePreset: ThemePreset;
   accentColor: AccentColor;
+  hiddenSongColumns: SongColumn[];
 }

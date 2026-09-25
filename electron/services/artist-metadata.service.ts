@@ -8,7 +8,7 @@ const SUCCESS_TTL = 30 * 24 * 60 * 60 * 1000;
 const NOT_FOUND_TTL = 7 * 24 * 60 * 60 * 1000;
 const ERROR_TTL = 24 * 60 * 60 * 1000;
 const AVATAR_MISSING_TTL = 7 * 24 * 60 * 60 * 1000;
-const RESOLVER_VERSION = 2;
+const RESOLVER_VERSION = 5;
 const MBID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 type Fetcher = typeof fetch;
@@ -68,7 +68,6 @@ export class ArtistMetadataService {
     const previous = this.database.getArtistMetadata(artistId);
     if (!previous?.musicBrainzId) throw new Error('Select a MusicBrainz artist before setting Wikipedia');
     const url = value?.trim() ? validWikipediaUrl(value.trim()) : null;
-    this.database.saveArtistMetadata({ ...previous, wikipediaOverrideUrl: url, nextRetryAt: 0 });
     return this.enrichAndSave(artist, previous.musicBrainzId, previous.matchMode, url);
   }
 
@@ -118,16 +117,29 @@ export class ArtistMetadataService {
 
   private async enrichAndSave(artist: Artist, mbid: string, matchMode: 'automatic' | 'manual', wikipediaOverrideUrl: string | null): Promise<ArtistOnlineMetadata | null> {
     const previous = this.database.getArtistMetadata(artist.id);
-    const relationships = await this.musicBrainzJson(`/ws/2/artist/${mbid}?inc=url-rels&fmt=json`) as { relations?: Array<Record<string, unknown>> };
+    const relationships = await this.musicBrainzJson(`/ws/2/artist/${mbid}?inc=url-rels&fmt=json`) as { country?: string; disambiguation?: string; relations?: Array<Record<string, unknown>> };
     const urls = relationshipUrls(relationships.relations ?? []);
-    const wikipediaUrl = wikipediaOverrideUrl ?? urls.wikipedia;
+    const preferVietnamese = relationships.country === 'VN';
     const wikidataId = urls.wikidataId ?? await this.findWikidataByMbid(mbid).catch(() => null);
 
-    const wiki = await this.wikipediaData(wikipediaUrl, wikidataId);
+    const wiki = await this.wikipediaData(wikipediaOverrideUrl, urls.wikipedia, wikidataId, preferVietnamese);
     const audioDb = await this.audioDbData(mbid);
-    const biography = wiki.biography ?? wiki.description ?? audioDb.biography;
-    const biographySourceUrl = wiki.biography ? wiki.sourceUrl : wiki.description ? wiki.wikidataUrl : audioDb.biography ? audioDb.sourceUrl : null;
-    const sources = uniqueSources(['musicbrainz', ...wiki.sources, ...audioDb.sources]);
+    const musicBrainzDescription = cleanText(stringValue(relationships.disambiguation));
+    const freshBiography = wiki.biography ? { text: wiki.biography, sourceUrl: wiki.sourceUrl, source: 'wikipedia' as const }
+      : audioDb.biography ? { text: audioDb.biography, sourceUrl: audioDb.sourceUrl, source: 'theaudiodb' as const }
+      : wiki.description ? { text: wiki.description, sourceUrl: wiki.wikidataUrl, source: 'wikidata' as const }
+      : musicBrainzDescription ? { text: musicBrainzDescription, sourceUrl: `https://musicbrainz.org/artist/${mbid}`, source: 'musicbrainz' as const }
+      : null;
+    const cachedBiography = previous?.musicBrainzId === mbid && previous.wikipediaOverrideUrl === wikipediaOverrideUrl && previous.biography
+      ? { text: previous.biography, sourceUrl: previous.biographySourceUrl, source: biographySource(previous.biographySourceUrl) }
+      : null;
+    const retainedBiography = cachedBiography && biographyPriority(cachedBiography.source, cachedBiography.sourceUrl, preferVietnamese) >
+      biographyPriority(freshBiography?.source ?? null, freshBiography?.sourceUrl ?? null, preferVietnamese);
+    const selectedBiography = retainedBiography ? cachedBiography : freshBiography;
+    const biography = selectedBiography?.text ?? null;
+    const biographySourceUrl = selectedBiography?.sourceUrl ?? null;
+    const sources = uniqueSources(['musicbrainz', ...wiki.sources, ...audioDb.sources,
+      ...(retainedBiography && cachedBiography.source ? [cachedBiography.source] : [])]);
     const wikiImageSource = wiki.sourceUrl ?? wiki.wikidataUrl;
     const [avatarResult, aboutImageResult] = await Promise.all([
       this.downloadFirstImage([
@@ -141,16 +153,18 @@ export class ArtistMetadataService {
     ]);
     const avatarHash = avatarResult?.hash ?? null;
     const aboutImageHash = aboutImageResult?.hash ?? null;
-    const hasContent = Boolean(biography || avatarHash || aboutImageHash);
+    const storedAvatarHash = avatarHash ?? previous?.avatarHash ?? null;
+    const storedAboutImageHash = aboutImageHash ?? previous?.aboutImageHash ?? null;
+    const hasContent = Boolean(biography || storedAvatarHash || storedAboutImageHash);
     const fetchedAt = this.now();
     const stored: StoredArtistMetadata = {
       artistId: artist.id, artistName: artist.name, musicBrainzId: mbid, matchMode, wikipediaOverrideUrl,
-      biography, biographySourceUrl, avatarHash: avatarHash ?? previous?.avatarHash ?? null,
+      biography, biographySourceUrl, avatarHash: storedAvatarHash,
       avatarSourceUrl: avatarResult?.sourceUrl ?? previous?.avatarSourceUrl ?? null,
-      aboutImageHash: aboutImageHash ?? previous?.aboutImageHash ?? null,
+      aboutImageHash: storedAboutImageHash,
       aboutImageSourceUrl: aboutImageResult?.sourceUrl ?? previous?.aboutImageSourceUrl ?? null, sources,
-      status: hasContent || previous?.status === 'available' ? 'available' : 'not-found', fetchedAt,
-      nextRetryAt: fetchedAt + (hasContent ? (avatarHash ? SUCCESS_TTL : AVATAR_MISSING_TTL) : NOT_FOUND_TTL), lastError: null,
+      status: hasContent ? 'available' : 'matched-empty', fetchedAt,
+      nextRetryAt: fetchedAt + (retainedBiography ? AVATAR_MISSING_TTL : hasContent ? (storedAvatarHash ? SUCCESS_TTL : AVATAR_MISSING_TTL) : NOT_FOUND_TTL), lastError: null,
       resolverVersion: RESOLVER_VERSION, customAvatarHash: previous?.customAvatarHash ?? null,
     };
     this.database.saveArtistMetadata(stored);
@@ -197,11 +211,13 @@ export class ArtistMetadataService {
     this.onUpdate({ artistId, metadata: cached ? publicMetadata(cached) : null, customAvatar, status: cached?.status ?? 'not-found' });
   }
 
-  private async wikipediaData(wikipediaUrl: string | null, wikidataId: string | null): Promise<{
+  private async wikipediaData(overrideUrl: string | null, relationUrls: Partial<Record<'en' | 'vi', string>>, wikidataId: string | null, preferVietnamese: boolean): Promise<{
     biography: string | null; description: string | null; imageUrl: string | null;
     sourceUrl: string | null; wikidataUrl: string | null; sources: ArtistMetadataSource[];
   }> {
-    let title = wikipediaUrl ? wikipediaTitle(wikipediaUrl) : null;
+    const pages: string[] = overrideUrl ? [overrideUrl] : [];
+    const sitelinkPages: Partial<Record<'en' | 'vi', string>> = {};
+    const languages = preferVietnamese ? ['vi', 'en'] as const : ['en', 'vi'] as const;
     let description: string | null = null;
     let imageUrl: string | null = null;
     let wikidataUrl: string | null = null;
@@ -214,26 +230,42 @@ export class ArtistMetadataService {
         const descriptions = item?.['descriptions'] as Record<string, { value?: string }> | undefined;
         const sitelinks = item?.['sitelinks'] as Record<string, { title?: string }> | undefined;
         const claims = item?.['claims'] as Record<string, Array<{ mainsnak?: { datavalue?: { value?: string } } }>> | undefined;
-        description = descriptions?.['en']?.value?.trim() || null;
-        title ??= sitelinks?.['enwiki']?.title || null;
+        description = languages.map((language) => descriptions?.[language]?.value?.trim()).find(Boolean) ?? null;
+        if (!overrideUrl) {
+          for (const language of languages) {
+            const title = sitelinks?.[`${language}wiki`]?.title;
+            if (title) sitelinkPages[language] = wikipediaPageUrl(language, title);
+          }
+        }
         const fileName = claims?.['P18']?.[0]?.mainsnak?.datavalue?.value;
         if (typeof fileName === 'string') imageUrl = `https://commons.wikimedia.org/wiki/Special:Redirect/file/${encodeURIComponent(fileName)}`;
         sources.push('wikidata');
       } catch { /* Wikipedia may still be available through an override or MusicBrainz relationship. */ }
     }
     let biography: string | null = null;
-    let sourceUrl = wikipediaUrl;
-    if (title) {
+    if (!overrideUrl) {
+      for (const language of languages) {
+        if (sitelinkPages[language]) pages.push(sitelinkPages[language]);
+        if (relationUrls[language]) pages.push(relationUrls[language]);
+      }
+    }
+    let sourceUrl: string | null = null;
+    for (const page of [...new Set(pages)]) {
       try {
-        const summary = await this.json(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`) as Record<string, unknown>;
-        biography = typeof summary['extract'] === 'string' ? cleanText(summary['extract']) : null;
+        const parsed = new URL(page);
+        const title = wikipediaTitle(page);
+        const summary = await this.json(`https://${parsed.hostname}/api/rest_v1/page/summary/${encodeURIComponent(title)}`) as Record<string, unknown>;
+        const extract = typeof summary['extract'] === 'string' ? cleanText(summary['extract']) : null;
+        if (!extract) continue;
+        biography = extract;
         const contentUrls = summary['content_urls'] as { desktop?: { page?: string } } | undefined;
-        sourceUrl = contentUrls?.desktop?.page ?? sourceUrl ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+        sourceUrl = contentUrls?.desktop?.page ?? page;
         const original = summary['originalimage'] as { source?: string } | undefined;
         const thumbnail = summary['thumbnail'] as { source?: string } | undefined;
         imageUrl = original?.source ?? thumbnail?.source ?? imageUrl;
         sources.push('wikipedia');
-      } catch { /* Preserve a successful Wikidata description or image. */ }
+        break;
+      } catch { /* Try the next language, preserving Wikidata details. */ }
     }
     return { biography, description, imageUrl, sourceUrl, wikidataUrl, sources };
   }
@@ -328,16 +360,16 @@ function mapCandidate(value: Record<string, unknown>): ArtistMatchCandidate {
   };
 }
 
-function relationshipUrls(relations: Array<Record<string, unknown>>): { wikipedia: string | null; wikidataId: string | null } {
-  let wikipedia: string | null = null;
+function relationshipUrls(relations: Array<Record<string, unknown>>): { wikipedia: Partial<Record<'en' | 'vi', string>>; wikidataId: string | null } {
+  const wikipedia: Partial<Record<'en' | 'vi', string>> = {};
   let wikidataId: string | null = null;
   for (const relation of relations) {
     const resource = relation['url'] && typeof relation['url'] === 'object' ? stringValue((relation['url'] as Record<string, unknown>)['resource']) : null;
     if (!resource) continue;
     try {
       const url = new URL(resource);
-      if (relation['type'] === 'wikipedia' && url.hostname === 'en.wikipedia.org' && url.pathname.startsWith('/wiki/')) {
-        url.protocol = 'https:'; wikipedia = url.toString();
+      if (relation['type'] === 'wikipedia' && (url.hostname === 'en.wikipedia.org' || url.hostname === 'vi.wikipedia.org') && url.pathname.startsWith('/wiki/')) {
+        url.protocol = 'https:'; wikipedia[url.hostname.slice(0, 2) as 'en' | 'vi'] = url.toString();
       }
       if (relation['type'] === 'wikidata' && (url.hostname === 'www.wikidata.org' || url.hostname === 'wikidata.org')) wikidataId = url.pathname.match(/\/wiki\/(Q\d+)$/)?.[1] ?? wikidataId;
     } catch { /* Ignore malformed third-party relationships. */ }
@@ -371,11 +403,34 @@ function normalizeName(value: string): string { return value.normalize('NFKC').t
 function stringValue(value: unknown): string | null { return typeof value === 'string' && value.trim() ? value.trim() : null; }
 function cleanText(value: string | null): string | null { return value ? value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() || null : null; }
 function uniqueSources(values: ArtistMetadataSource[]): ArtistMetadataSource[] { return [...new Set(values)]; }
+function biographySource(url: string | null): ArtistMetadataSource | null {
+  if (!url) return null;
+  try {
+    const host = new URL(url).hostname;
+    if (host === 'en.wikipedia.org' || host === 'vi.wikipedia.org') return 'wikipedia';
+    if (host === 'www.theaudiodb.com') return 'theaudiodb';
+    if (host === 'www.wikidata.org') return 'wikidata';
+    if (host === 'musicbrainz.org') return 'musicbrainz';
+  } catch { /* Legacy cache may contain a malformed source URL. */ }
+  return null;
+}
+function biographyPriority(source: ArtistMetadataSource | null, url: string | null, preferVietnamese: boolean): number {
+  if (source === 'wikipedia') {
+    const preferred = preferVietnamese ? 'vi.wikipedia.org' : 'en.wikipedia.org';
+    try { return url && new URL(url).hostname === preferred ? 5 : 4; }
+    catch { return 4; }
+  }
+  if (source === 'theaudiodb') return 3;
+  if (source === 'wikidata') return 2;
+  if (source === 'musicbrainz') return 1;
+  return 0;
+}
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 function wikipediaTitle(url: string): string { return decodeURIComponent(new URL(url).pathname.replace(/^\/wiki\//, '')).replace(/_/g, ' '); }
+function wikipediaPageUrl(language: 'en' | 'vi', title: string): string { return `https://${language}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`; }
 function validWikipediaUrl(value: string): string {
   const url = new URL(value);
-  if (url.protocol !== 'https:' || url.hostname !== 'en.wikipedia.org' || !url.pathname.startsWith('/wiki/')) throw new Error('Use an English Wikipedia article URL');
+  if (url.protocol !== 'https:' || !['en.wikipedia.org', 'vi.wikipedia.org'].includes(url.hostname) || !url.pathname.startsWith('/wiki/')) throw new Error('Use an English or Vietnamese Wikipedia article URL');
   return url.toString();
 }
 function allowedImageHost(hostname: string): boolean {

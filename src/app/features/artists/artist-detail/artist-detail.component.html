@@ -49,11 +49,12 @@
               </button>
               @if (!hasAboutContent()) {
                 <button type="button" class="btn btn-secondary" (click)="openMetadataEditor()">Edit online info</button>
-                @if (metadataStatus() === 'error' || metadataStatus() === 'not-found' || metadataStatus() === 'ambiguous') {
+                @if (metadataStatus() === 'error' || metadataStatus() === 'not-found' || metadataStatus() === 'ambiguous' || metadataStatus() === 'matched-empty' || metadataStatus() === 'available') {
                   <button type="button" class="btn btn-secondary" (click)="retryMetadata()">Retry info</button>
                 }
               }
             </div>
+            @if (metadataNotice(); as notice) { <p class="metadata-notice" role="status">{{ notice }}</p> }
           </div>
         </header>
 
@@ -179,7 +180,7 @@
       <div class="metadata-modal-backdrop" (click)="closeMetadataEditor()">
         <div class="metadata-modal-card" role="dialog" aria-modal="true" aria-labelledby="metadataEditorTitle" tabindex="-1" (click)="$event.stopPropagation()" (keydown)="onEditorKeydown($event)">
           <div class="metadata-modal-header">
-            <div><h2 id="metadataEditorTitle">Edit online artist info</h2><p>Choose the correct MusicBrainz profile and optionally provide an English Wikipedia page.</p></div>
+            <div><h2 id="metadataEditorTitle">Edit online artist info</h2><p>Choose the correct MusicBrainz profile and optionally provide a Wikipedia page in English or Vietnamese.</p></div>
             <button type="button" class="btn-icon" (click)="closeMetadataEditor()" aria-label="Close artist metadata editor"><app-icon name="x" [size]="18" /></button>
           </div>
           <form (ngSubmit)="searchMetadataCandidates()" class="candidate-search">
@@ -196,8 +197,8 @@
               </button>
             } @empty { @if (!editorLoading()) { <p class="candidate-message">No MusicBrainz matches found.</p> } }
           </div>
-          <label class="wikipedia-field">English Wikipedia URL (optional)
-            <input type="url" [ngModel]="wikipediaOverride()" (ngModelChange)="wikipediaOverride.set($event)" name="wikipediaOverride" placeholder="https://en.wikipedia.org/wiki/..." />
+          <label class="wikipedia-field">Wikipedia URL (English or Vietnamese, optional)
+            <input type="url" [ngModel]="wikipediaOverride()" (ngModelChange)="wikipediaOverride.set($event)" name="wikipediaOverride" placeholder="https://vi.wikipedia.org/wiki/..." />
           </label>
           <div class="custom-avatar-actions">
             <button type="button" class="btn btn-secondary" (click)="chooseCustomAvatar()">Choose image from computer</button>

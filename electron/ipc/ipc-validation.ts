@@ -29,14 +29,14 @@ export function validWikipediaOverride(value: unknown): string | null {
   if (value === null) return null;
   if (typeof value !== 'string') throw new Error('Invalid Wikipedia URL');
   const url = new URL(value);
-  if (url.protocol !== 'https:' || url.hostname !== 'en.wikipedia.org' || !url.pathname.startsWith('/wiki/')) throw new Error('Invalid Wikipedia URL');
+  if (url.protocol !== 'https:' || !['en.wikipedia.org', 'vi.wikipedia.org'].includes(url.hostname) || !url.pathname.startsWith('/wiki/')) throw new Error('Invalid Wikipedia URL');
   return url.toString();
 }
 
 export function validArtistSourceUrl(value: unknown): string {
   if (typeof value !== 'string') throw new Error('Invalid source URL');
   const url = new URL(value);
-  const allowed = url.hostname === 'musicbrainz.org' || url.hostname === 'en.wikipedia.org' || url.hostname === 'www.wikidata.org' || url.hostname === 'www.theaudiodb.com';
+  const allowed = url.hostname === 'musicbrainz.org' || url.hostname === 'en.wikipedia.org' || url.hostname === 'vi.wikipedia.org' || url.hostname === 'www.wikidata.org' || url.hostname === 'www.theaudiodb.com';
   if (url.protocol !== 'https:' || !allowed) throw new Error('Untrusted source URL');
   return url.toString();
 }

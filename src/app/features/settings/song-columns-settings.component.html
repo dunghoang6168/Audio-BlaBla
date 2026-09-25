@@ -1,0 +1,29 @@
+<section class="settings-card card-base" aria-labelledby="songs-settings-title">
+  <div class="card-header">
+    <h2 id="songs-settings-title">Songs</h2>
+    <span class="card-desc">Choose which columns appear in the Songs table. Narrow windows may hide additional columns.</span>
+  </div>
+  @if (errorMessage()) {
+    <p class="song-columns-error" role="alert">{{ errorMessage() }}</p>
+  }
+  <div class="song-columns-grid">
+    <div class="song-column-option locked">
+      <div class="song-column-copy">
+        <span class="song-column-name">Title</span>
+        <span class="song-column-desc">Always visible so each track can be identified</span>
+      </div>
+      <input type="checkbox" checked disabled aria-label="Show Title column (always visible)" />
+    </div>
+    @for (column of songColumnOptions; track column.id) {
+      <label class="song-column-option">
+        <span class="song-column-copy">
+          <span class="song-column-name">{{ column.label }}</span>
+          <span class="song-column-desc">{{ column.description }}</span>
+        </span>
+        <input type="checkbox" [checked]="isSongColumnVisible(column.id)" [disabled]="isLoading()"
+          (change)="onSongColumnChange(column.id, $any($event.target).checked)"
+          [attr.aria-label]="'Show ' + column.label + ' column'" />
+      </label>
+    }
+  </div>
+</section>

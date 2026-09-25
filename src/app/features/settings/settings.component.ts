@@ -2,11 +2,12 @@ import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY, SETTINGS_GATEWAY } from '../../core/contracts';
-import { AccentColor, MusicFolder, RepeatMode, Settings, ThemePreset } from '../../core/models';
+import { AccentColor, MusicFolder, RepeatMode, ThemePreset } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { ThemeService } from '../../core/theme/theme.service';
 import { getDesktopApi } from '../../core/desktop/desktop-api';
 import { IconComponent } from '../../shared/components/icon/icon.component';
+import { SongColumnsSettingsComponent } from './song-columns-settings.component';
 
 export interface ThemePresetOption {
   id: ThemePreset;
@@ -22,7 +23,7 @@ export interface ThemePresetOption {
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, SongColumnsSettingsComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })

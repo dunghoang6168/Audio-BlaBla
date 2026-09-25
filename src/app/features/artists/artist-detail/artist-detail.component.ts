@@ -9,6 +9,7 @@ import { DurationPipe } from '../../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../../shared/components/icon/icon.component';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { artistAvatarCandidates } from '../artist-avatar';
+import { orderArtistTracks } from '../artist-play-order';
 
 @Component({
   selector: 'app-artist-detail',
@@ -29,7 +30,7 @@ export class ArtistDetailComponent implements OnInit {
   readonly artistTracks = signal<Track[]>([]);
   readonly allTracks = signal<Track[]>([]);
   readonly isLoading = signal<boolean>(true);
-  readonly metadataStatus = signal<'idle' | 'loading' | 'available' | 'not-found' | 'ambiguous' | 'error'>('idle');
+  readonly metadataStatus = signal<'idle' | 'loading' | 'available' | 'not-found' | 'ambiguous' | 'matched-empty' | 'error'>('idle');
   readonly metadataError = signal<string | null>(null);
   readonly biographyExpanded = signal(false);
   readonly failedAvatars = signal<Set<string>>(new Set());
@@ -55,6 +56,17 @@ export class ArtistDetailComponent implements OnInit {
   readonly hasAboutContent = computed(() => {
     const metadata = this.artist()?.onlineMetadata;
     return Boolean(metadata?.biography?.trim() || (metadata?.aboutImage && !this.aboutImageFailed()));
+  });
+  readonly metadataNotice = computed(() => {
+    if (this.hasAboutContent()) return null;
+    switch (this.metadataStatus()) {
+      case 'ambiguous': return 'Several MusicBrainz profiles match this name. Choose the correct one in Edit online info.';
+      case 'not-found': return 'No matching MusicBrainz profile was found. Search or choose a profile in Edit online info.';
+      case 'matched-empty': return 'A MusicBrainz profile was matched, but no biography or About image was found. You can provide a Wikipedia page in Edit online info.';
+      case 'available': return 'An artist image was found, but no biography or About image is available yet.';
+      case 'error': return 'Artist information could not be loaded. Retry or choose a profile in Edit online info.';
+      default: return null;
+    }
   });
   readonly heroAvatar = computed(() => {
     const artist = this.artist();
@@ -100,17 +112,8 @@ export class ArtistDetailComponent implements OnInit {
         const albums = lib.albums.filter((a) => foundArtist.albumIds.includes(a.id));
         this.artistAlbums.set(albums);
 
-        // Tracks by this artist
-        const trackMap = new Map<string, Track>();
-        lib.tracks.forEach((t) => trackMap.set(t.id, t));
-
-        const tracks: Track[] = [];
-        foundArtist.trackIds.forEach((id) => {
-          const t = trackMap.get(id);
-          if (t) tracks.push(t);
-        });
-
-        this.artistTracks.set(tracks);
+        // Tracks by this artist, in album playback order.
+        this.artistTracks.set(orderArtistTracks(foundArtist, albums, lib.tracks));
         void this.artistMetadata.ensureArtist(foundArtist.id).catch((error: unknown) => {
           this.metadataStatus.set('error');
           this.metadataError.set(errorMessage(error));
@@ -126,12 +129,9 @@ export class ArtistDetailComponent implements OnInit {
     const artist = library.artists.find((item) => item.id === artistId);
     if (!artist) return;
     this.allTracks.set(library.tracks);
-    this.artistAlbums.set(library.albums.filter((album) => artist.albumIds.includes(album.id)));
-    const tracksById = new Map(library.tracks.map((track) => [track.id, track]));
-    this.artistTracks.set(artist.trackIds.flatMap((id) => {
-      const track = tracksById.get(id);
-      return track ? [track] : [];
-    }));
+    const albums = library.albums.filter((album) => artist.albumIds.includes(album.id));
+    this.artistAlbums.set(albums);
+    this.artistTracks.set(orderArtistTracks(artist, albums, library.tracks));
   }
 
   async retryMetadata(): Promise<void> {
@@ -142,7 +142,8 @@ export class ArtistDetailComponent implements OnInit {
     try {
       const metadata = await this.artistMetadata.refreshArtist(artist.id);
       this.artist.update((value) => value ? { ...value, onlineMetadata: metadata } : value);
-      this.metadataStatus.set(metadata ? 'available' : 'not-found');
+      if (metadata) this.metadataStatus.set('available');
+      else if (this.metadataStatus() === 'loading') this.metadataStatus.set('not-found');
     } catch (error) {
       this.metadataStatus.set('error');
       this.metadataError.set(errorMessage(error));
@@ -206,7 +207,7 @@ export class ArtistDetailComponent implements OnInit {
       const wikipedia = this.wikipediaOverride().trim();
       if (wikipedia) metadata = await this.artistMetadata.setWikipediaOverride(artist.id, wikipedia);
       this.artist.update((value) => value ? { ...value, onlineMetadata: metadata } : value);
-      this.metadataStatus.set(metadata ? 'available' : 'not-found');
+      this.metadataStatus.set(metadata ? 'available' : 'matched-empty');
       this.closeMetadataEditor();
     } catch (error) { this.editorError.set(errorMessage(error)); }
     finally { this.editorLoading.set(false); }
@@ -226,15 +227,24 @@ export class ArtistDetailComponent implements OnInit {
   openSource(url: string): void { void this.artistMetadata.openSource(url); }
 
   onPlayAll(): void {
-    const tracks = this.artistTracks();
+    const artist = this.artist();
+    if (!artist) return;
+    const tracks = orderArtistTracks(artist, this.artistAlbums(), this.allTracks());
     if (tracks.length > 0) {
+      this.player.setShuffle(false);
       this.player.playCollection(tracks, 0);
     }
   }
 
   onPlayTrack(track: Track, index: number): void {
     if (!track.isAvailable) return;
-    this.player.playCollection(this.artistTracks(), index);
+    const artist = this.artist();
+    if (!artist) return;
+    const tracks = orderArtistTracks(artist, this.artistAlbums(), this.allTracks());
+    const selectedIndex = tracks.findIndex((item) => item.id === track.id);
+    if (selectedIndex < 0) return;
+    this.player.setShuffle(false);
+    this.player.playCollection(tracks, selectedIndex);
   }
 
   onPlayAlbum(event: MouseEvent, album: Album): void {

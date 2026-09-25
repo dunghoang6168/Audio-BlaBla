@@ -1,7 +1,7 @@
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
-import { LIBRARY_GATEWAY } from '../../core/contracts';
+import { LIBRARY_GATEWAY, SETTINGS_GATEWAY } from '../../core/contracts';
 import { Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
 import { SongsComponent } from './songs.component';
@@ -10,15 +10,18 @@ describe('SongsComponent browsing', () => {
   let fixture: ComponentFixture<SongsComponent>;
   let component: SongsComponent;
   let getLibrary: jasmine.Spy;
+  let getSettings: jasmine.Spy;
   let scanProgress: Subject<{ isScanning: boolean }>;
 
   beforeEach(async () => {
     scanProgress = new Subject();
     getLibrary = jasmine.createSpy('getLibrary').and.resolveTo({ tracks: [], albums: [], artists: [], folders: [] });
+    getSettings = jasmine.createSpy('getSettings').and.resolveTo({ hiddenSongColumns: [] });
     await TestBed.configureTestingModule({
       imports: [SongsComponent],
       providers: [
         { provide: LIBRARY_GATEWAY, useValue: { getLibrary, scanProgress$: scanProgress } },
+        { provide: SETTINGS_GATEWAY, useValue: { getSettings } },
         { provide: PlayerService, useValue: { currentTrack: signal(null), isPlaying: signal(false), isShuffle: signal(false), playCollection: jasmine.createSpy('playCollection') } },
       ],
     }).compileComponents();
@@ -93,6 +96,83 @@ describe('SongsComponent browsing', () => {
     expect(getLibrary).toHaveBeenCalledTimes(2);
     expect([component.sortColumn(), component.artistFilter(), component.yearFilter()]).toEqual(['album', 'Artist', '2024']);
     expect(trackIds(component)).toEqual(['a']);
+  });
+  it('orders album groups by name but tracks by disc and track number', () => {
+    component.tracks.set([
+      { ...createTrack('a3', 'Aardvark', 'Artist A', 'Album A', 2023, 20, null), discNumber: 1, trackNumber: 3 },
+      { ...createTrack('b1', 'Other', 'Artist B', 'Album A', 2023, 20, null), discNumber: 1, trackNumber: 1 },
+      { ...createTrack('a-disc2', 'First', 'Artist A', 'Album A', 2023, 20, null), discNumber: 2, trackNumber: 1 },
+      { ...createTrack('a1', 'Zulu', 'Artist A', 'Album A', 2023, 20, null), discNumber: 1, trackNumber: 1 },
+      { ...createTrack('c1', 'Song', 'Artist C', 'Album B', 2023, 20, null), discNumber: 1, trackNumber: 1 },
+      { ...createTrack('a2', 'Beta', 'Artist A', 'Album A', 2023, 20, null), discNumber: 1, trackNumber: 2 },
+    ]);
+    component.sortColumn.set('album');
+    expect(trackIds(component)).toEqual(['a1', 'a2', 'a3', 'a-disc2', 'b1', 'c1']);
+    component.sortDirection.set('desc');
+    expect(trackIds(component)).toEqual(['c1', 'a1', 'a2', 'a3', 'a-disc2', 'b1']);
+  });
+
+  it('keeps album names A-Z within each artist in both artist directions', () => {
+    component.tracks.set([
+      { ...createTrack('z1', 'Early', 'Artist A', 'Zulu Album', 2022, 20, null), trackNumber: 1 },
+      { ...createTrack('a2', 'Aardvark', 'Artist A', 'Alpha Album', 2023, 20, null), trackNumber: 2 },
+      { ...createTrack('b1', 'Other', 'Artist B', 'Only Album', 2024, 20, null), trackNumber: 1 },
+      { ...createTrack('a1', 'Zulu', 'Artist A', 'Alpha Album', 2023, 20, null), trackNumber: 1 },
+    ]);
+    component.sortColumn.set('artist');
+    expect(trackIds(component)).toEqual(['a1', 'a2', 'z1', 'b1']);
+    component.sortDirection.set('desc');
+    expect(trackIds(component)).toEqual(['b1', 'a1', 'a2', 'z1']);
+  });
+
+  it('uses album fallback for missing numbers and plays the filtered order', () => {
+    component.tracks.set([
+      createTrack('missing-b', 'Beta', 'Artist', 'Album', 2023, 20, null),
+      { ...createTrack('other', 'Other', 'Other Artist', 'Other Album', 2023, 20, null), trackNumber: 1 },
+      { ...createTrack('known', 'Zulu', 'Artist', 'Album', 2023, 20, null), trackNumber: 2 },
+      createTrack('missing-a', 'Alpha', 'Artist', 'Album', 2023, 20, null),
+    ]);
+    component.artistFilter.set('Artist');
+    component.albumFilter.set('Album');
+    component.sortColumn.set('album');
+    expect(trackIds(component)).toEqual(['known', 'missing-a', 'missing-b']);
+    component.onPlayAll();
+    expect(TestBed.inject(PlayerService).playCollection).toHaveBeenCalledWith(component.filteredTracks(), 0);
+    component.searchQuery.set('Alpha');
+    expect(trackIds(component)).toEqual(['missing-a']);
+    expect(component.sortColumn()).toBe('album');
+  });
+  it('hides chosen headers and cells without changing the track list or sort', async () => {
+    component.tracks.set([createTrack('one', 'First', 'Artist One', 'Album One', 2024, 20, 96000)]);
+    component.songColumns.hiddenSongColumns.set(['artist', 'codec']);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('th.col-artist').classList.contains('user-hidden')).toBeTrue();
+    expect(fixture.nativeElement.querySelector('td.col-artist').classList.contains('user-hidden')).toBeTrue();
+    expect(fixture.nativeElement.querySelector('th.col-codec').classList.contains('user-hidden')).toBeTrue();
+    expect(fixture.nativeElement.querySelector('td.col-codec').classList.contains('user-hidden')).toBeTrue();
+    expect(fixture.nativeElement.querySelector('th.col-title').classList.contains('user-hidden')).toBeFalse();
+    expect(trackIds(component)).toEqual(['one']);
+    expect(component.sortColumn()).toBe('title');
+  });
+
+  it('applies searchable artist and album choices to the visible songs', () => {
+    component.tracks.set([
+      createTrack('one', 'First', 'Artist One', 'Album One', 2024, 20, null),
+      createTrack('two', 'Second', 'Artist Two', 'Album Two', 2024, 20, null),
+    ]);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.filter-trigger') as HTMLButtonElement).click();
+    const selectors: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('app-searchable-filter-select');
+    (selectors[0].querySelector('.select-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    ([...selectors[0].querySelectorAll('.option-item')].find((item) => item.textContent?.includes('Artist Two')) as HTMLButtonElement).click();
+    fixture.detectChanges();
+    (selectors[1].querySelector('.select-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    ([...selectors[1].querySelectorAll('.option-item')].find((item) => item.textContent?.includes('Album Two')) as HTMLButtonElement).click();
+    expect([component.artistFilter(), component.albumFilter()]).toEqual(['Artist Two', 'Album Two']);
+    expect(trackIds(component)).toEqual(['two']);
+    expect(component.sortColumn()).toBe('title');
   });
 });
 

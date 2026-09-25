@@ -32,12 +32,10 @@
                 </div>
               </div>
               <div class="browse-filter-field">
-                <label for="album-artist-filter">Artist</label>
-                <select id="album-artist-filter" [ngModel]="artistFilter()" (ngModelChange)="artistFilter.set($event)">
-                  <option value="">All artists</option>
-                  @for (artist of artistOptions(); track artist) { <option [value]="artist">{{ artist }}</option> }
-                  @if (hasUnknownArtist()) { <option value="__unknown_artist__">Unknown Artist</option> }
-                </select>
+                <span class="field-label">Artist</span>
+                <app-searchable-filter-select label="Artist" [options]="artistOptions()" [value]="artistFilter()"
+                  allLabel="All artists" [includeUnknown]="hasUnknownArtist()" unknownValue="__unknown_artist__"
+                  unknownLabel="Unknown Artist" (valueChange)="artistFilter.set($event)" />
               </div>
               <div class="browse-filter-field">
                 <label for="album-year-filter">Year</label>

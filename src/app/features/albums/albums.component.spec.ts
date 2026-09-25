@@ -133,6 +133,24 @@ describe('AlbumsComponent quick play', () => {
     expect(component.yearOptions()).toContain(2024);
     expect(albumIds(component)).toEqual([]);
   });
+  it('applies the searchable artist choice without changing sort', async () => {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    component.albums.set([
+      createAlbum('one', 'First', 'Artist One', 2024, 1),
+      createAlbum('two', 'Second', 'Artist Two', 2024, 1),
+    ]);
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('.filter-trigger') as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelector('app-searchable-filter-select .select-trigger') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    const target = [...fixture.nativeElement.querySelectorAll('app-searchable-filter-select .option-item')]
+      .find((item: Element) => item.textContent?.includes('Artist Two')) as HTMLButtonElement;
+    target.click();
+    expect(component.artistFilter()).toBe('Artist Two');
+    expect(albumIds(component)).toEqual(['two']);
+    expect(component.sortBy()).toBe('title');
+  });
 });
 
 function createAlbum(id: string, title: string, artist: string, year: number | null, tracks: number): Album {

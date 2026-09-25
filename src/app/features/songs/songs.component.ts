@@ -3,11 +3,13 @@ import { CommonModule } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { LIBRARY_GATEWAY } from '../../core/contracts';
-import { Track } from '../../core/models';
+import { compareAlbumTracks, SongColumn, Track } from '../../core/models';
 import { PlayerService } from '../../core/player/player.service';
+import { SongColumnPreferencesService } from '../../core/settings/song-column-preferences.service';
 import { DurationPipe } from '../../shared/pipes/duration.pipe';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
+import { SearchableFilterSelectComponent } from '../../shared/components/searchable-filter-select/searchable-filter-select.component';
 import { compareNames } from '../library-browse';
 
 type SortColumn = 'title' | 'artist' | 'album' | 'duration' | 'codec' | 'sampleRate';
@@ -19,12 +21,13 @@ const UNKNOWN_YEAR = 'unknown';
 @Component({
   selector: 'app-songs',
   standalone: true,
-  imports: [CommonModule, FormsModule, DurationPipe, IconComponent, BrowseFilterPopoverComponent],
+  imports: [CommonModule, FormsModule, DurationPipe, IconComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent],
   templateUrl: './songs.component.html',
   styleUrl: './songs.component.scss'
 })
 export class SongsComponent implements OnInit {
   private readonly libraryGateway = inject(LIBRARY_GATEWAY);
+  readonly songColumns = inject(SongColumnPreferencesService);
   private readonly destroyRef = inject(DestroyRef);
   readonly player = inject(PlayerService);
 
@@ -71,12 +74,23 @@ export class SongsComponent implements OnInit {
     ).sort((a, b) => {
       let comparison = 0;
       if (col === 'title') comparison = compareNames(a.title, b.title);
-      if (col === 'artist' || col === 'album' || col === 'codec') {
-        const first = col === 'artist' ? a.artist : col === 'album' ? a.album : a.codec;
-        const second = col === 'artist' ? b.artist : col === 'album' ? b.album : b.codec;
-        if (!first) return second ? 1 : this.compareTrackFallback(a, b);
-        if (!second) return -1;
-        comparison = compareNames(first, second);
+      if (col === 'artist' || col === 'album') {
+        const groupA = col === 'artist' ? a.artist : a.album;
+        const groupB = col === 'artist' ? b.artist : b.album;
+        const groupOrder = this.compareGroupNames(groupA, groupB, dir);
+        if (groupOrder !== 0) return groupOrder;
+
+        if (col === 'artist') {
+          const albumOrder = this.compareGroupNames(a.album, b.album, 1);
+          if (albumOrder !== 0) return albumOrder;
+        }
+        const albumArtistOrder = this.compareGroupNames(a.albumArtist || a.artist, b.albumArtist || b.artist, 1);
+        return albumArtistOrder || compareAlbumTracks(a, b);
+      }
+      if (col === 'codec') {
+        if (!a.codec) return b.codec ? 1 : this.compareTrackFallback(a, b);
+        if (!b.codec) return -1;
+        comparison = compareNames(a.codec, b.codec);
       }
       if (col === 'duration') comparison = a.duration - b.duration;
       if (col === 'sampleRate') {
@@ -95,6 +109,11 @@ export class SongsComponent implements OnInit {
     ])].sort(compareNames);
   }
 
+  private compareGroupNames(a: string | null, b: string | null, direction: number): number {
+    if (!a) return b ? 1 : 0;
+    if (!b) return -1;
+    return compareNames(a, b) * direction;
+  }
   private compareTrackFallback(a: Track, b: Track): number {
     return compareNames(a.title, b.title) || compareNames(a.id, b.id);
   }
@@ -114,7 +133,11 @@ export class SongsComponent implements OnInit {
       wasScanning = progress.isScanning;
       if (justFinished) void this.loadSongs();
     });
-    await this.loadSongs();
+    await Promise.all([this.loadSongs(), this.songColumns.load()]);
+  }
+
+  isSongColumnHidden(column: SongColumn): boolean {
+    return this.songColumns.isHidden(column);
   }
 
   async loadSongs(): Promise<void> {

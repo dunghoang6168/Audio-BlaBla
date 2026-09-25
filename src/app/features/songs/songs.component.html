@@ -62,20 +62,16 @@
                 </div>
               </div>
               <div class="browse-filter-field">
-                <label for="song-artist-filter">Artist</label>
-                <select id="song-artist-filter" [ngModel]="artistFilter()" (ngModelChange)="artistFilter.set($event)">
-                  <option value="">All artists</option>
-                  @for (artist of artistOptions(); track artist) { <option [value]="artist">{{ artist }}</option> }
-                  @if (hasUnknownArtist()) { <option value="__unknown_artist__">Unknown Artist</option> }
-                </select>
+                <span class="field-label">Artist</span>
+                <app-searchable-filter-select label="Artist" [options]="artistOptions()" [value]="artistFilter()"
+                  allLabel="All artists" [includeUnknown]="hasUnknownArtist()" unknownValue="__unknown_artist__"
+                  unknownLabel="Unknown Artist" (valueChange)="artistFilter.set($event)" />
               </div>
               <div class="browse-filter-field">
-                <label for="song-album-filter">Album</label>
-                <select id="song-album-filter" [ngModel]="albumFilter()" (ngModelChange)="albumFilter.set($event)">
-                  <option value="">All albums</option>
-                  @for (album of albumOptions(); track album) { <option [value]="album">{{ album }}</option> }
-                  @if (hasUnknownAlbum()) { <option value="__unknown_album__">Unknown Album</option> }
-                </select>
+                <span class="field-label">Album</span>
+                <app-searchable-filter-select label="Album" [options]="albumOptions()" [value]="albumFilter()"
+                  allLabel="All albums" [includeUnknown]="hasUnknownAlbum()" unknownValue="__unknown_album__"
+                  unknownLabel="Unknown Album" (valueChange)="albumFilter.set($event)" />
               </div>
               <div class="browse-filter-field">
                 <label for="song-year-filter">Year</label>
@@ -131,7 +127,7 @@
           <table class="songs-table" role="grid" aria-label="Songs list">
             <thead>
               <tr>
-                <th class="col-index">#</th>
+                <th class="col-index" [class.user-hidden]="isSongColumnHidden('index')">#</th>
                 <th class="col-title sortable" (click)="toggleSort('title')" [attr.aria-sort]="getAriaSort('title')">
                   <span>Title</span>
                   @if (sortColumn() === 'title') {
@@ -140,7 +136,7 @@
                     </span>
                   }
                 </th>
-                <th class="col-artist sortable" (click)="toggleSort('artist')" [attr.aria-sort]="getAriaSort('artist')">
+                <th class="col-artist sortable" [class.user-hidden]="isSongColumnHidden('artist')" (click)="toggleSort('artist')" [attr.aria-sort]="getAriaSort('artist')">
                   <span>Artist</span>
                   @if (sortColumn() === 'artist') {
                     <span class="sort-indicator">
@@ -148,7 +144,7 @@
                     </span>
                   }
                 </th>
-                <th class="col-album sortable" (click)="toggleSort('album')" [attr.aria-sort]="getAriaSort('album')">
+                <th class="col-album sortable" [class.user-hidden]="isSongColumnHidden('album')" (click)="toggleSort('album')" [attr.aria-sort]="getAriaSort('album')">
                   <span>Album</span>
                   @if (sortColumn() === 'album') {
                     <span class="sort-indicator">
@@ -156,7 +152,7 @@
                     </span>
                   }
                 </th>
-                <th class="col-duration sortable" (click)="toggleSort('duration')" [attr.aria-sort]="getAriaSort('duration')">
+                <th class="col-duration sortable" [class.user-hidden]="isSongColumnHidden('duration')" (click)="toggleSort('duration')" [attr.aria-sort]="getAriaSort('duration')">
                   <span>Time</span>
                   @if (sortColumn() === 'duration') {
                     <span class="sort-indicator">
@@ -164,7 +160,7 @@
                     </span>
                   }
                 </th>
-                <th class="col-codec sortable" (click)="toggleSort('codec')" [attr.aria-sort]="getAriaSort('codec')">
+                <th class="col-codec sortable" [class.user-hidden]="isSongColumnHidden('codec')" (click)="toggleSort('codec')" [attr.aria-sort]="getAriaSort('codec')">
                   <span>Codec</span>
                   @if (sortColumn() === 'codec') {
                     <span class="sort-indicator">
@@ -172,7 +168,7 @@
                     </span>
                   }
                 </th>
-                <th class="col-quality sortable" (click)="toggleSort('sampleRate')" [attr.aria-sort]="getAriaSort('sampleRate')">
+                <th class="col-quality sortable" [class.user-hidden]="isSongColumnHidden('sampleRate')" (click)="toggleSort('sampleRate')" [attr.aria-sort]="getAriaSort('sampleRate')">
                   <span>Sample Rate</span>
                   @if (sortColumn() === 'sampleRate') {
                     <span class="sort-indicator">
@@ -180,7 +176,7 @@
                     </span>
                   }
                 </th>
-                <th class="col-actions"><span class="sr-only">Actions</span></th>
+                <th class="col-actions" [class.user-hidden]="isSongColumnHidden('actions')"><span class="sr-only">Actions</span></th>
               </tr>
             </thead>
             <tbody>
@@ -196,7 +192,7 @@
                   tabindex="0"
                   role="row">
                   <!-- # Index / Playing Indicator -->
-                  <td class="col-index">
+                  <td class="col-index" [class.user-hidden]="isSongColumnHidden('index')">
                     @if (player.currentTrack()?.id === track.id) {
                       <div class="playing-indicator" title="Currently Playing">
                         @if (player.isPlaying()) {
@@ -236,29 +232,29 @@
                   </td>
 
                   <!-- Artist -->
-                  <td class="col-artist truncate" [title]="track.artist || 'Unknown Artist'">
+                  <td class="col-artist truncate" [class.user-hidden]="isSongColumnHidden('artist')" [title]="track.artist || 'Unknown Artist'">
                     {{ track.artist || 'Unknown Artist' }}
                   </td>
 
                   <!-- Album -->
-                  <td class="col-album truncate" [title]="track.album || 'Unknown Album'">
+                  <td class="col-album truncate" [class.user-hidden]="isSongColumnHidden('album')" [title]="track.album || 'Unknown Album'">
                     {{ track.album || 'Unknown Album' }}
                   </td>
 
                   <!-- Duration -->
-                  <td class="col-duration">
+                  <td class="col-duration" [class.user-hidden]="isSongColumnHidden('duration')">
                     {{ track.duration | duration }}
                   </td>
 
                   <!-- Codec Badge -->
-                  <td class="col-codec">
+                  <td class="col-codec" [class.user-hidden]="isSongColumnHidden('codec')">
                     <span class="badge-codec" [class.hi-res]="isHiRes(track)">
                       {{ track.codec || 'UNKNOWN' }}
                     </span>
                   </td>
 
                   <!-- Sample Rate & Bit Depth -->
-                  <td class="col-quality">
+                  <td class="col-quality" [class.user-hidden]="isSongColumnHidden('sampleRate')">
                     <span class="quality-spec">
                       {{ formatSampleRate(track.sampleRate) }}
                       @if (track.bitDepth) {
@@ -268,7 +264,7 @@
                   </td>
 
                   <!-- Row Actions -->
-                  <td class="col-actions" (click)="$event.stopPropagation()">
+                  <td class="col-actions" [class.user-hidden]="isSongColumnHidden('actions')" (click)="$event.stopPropagation()">
                     <div class="row-actions">
                       <button
                         type="button"

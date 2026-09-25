@@ -32,7 +32,7 @@
       height: 140px;
       border-radius: var(--radius-full);
       background: linear-gradient(135deg, #3b0764, #1e1b4b);
-      border: 2px solid var(--border-default);
+      border: 2px solid var(--accent-primary);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -96,6 +96,7 @@
     }
 
     .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+    .metadata-notice { margin-top: var(--space-3); color: var(--text-secondary); font-size: var(--font-size-sm); line-height: 1.5; }
 
     .section-title {
       font-size: var(--font-size-lg);

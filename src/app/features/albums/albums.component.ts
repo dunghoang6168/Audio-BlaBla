@@ -9,6 +9,7 @@ import { PlayerService } from '../../core/player/player.service';
 import { IconComponent } from '../../shared/components/icon/icon.component';
 import { compareAlbumsByTitle, compareNames } from '../library-browse';
 import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
+import { SearchableFilterSelectComponent } from '../../shared/components/searchable-filter-select/searchable-filter-select.component';
 
 type AlbumSort = 'title' | 'artist' | 'year' | 'tracks';
 type SortDirection = 'asc' | 'desc';
@@ -18,7 +19,7 @@ const UNKNOWN_YEAR = 'unknown';
 @Component({
   selector: 'app-albums',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, IconComponent, BrowseFilterPopoverComponent],
+  imports: [CommonModule, RouterModule, FormsModule, IconComponent, BrowseFilterPopoverComponent, SearchableFilterSelectComponent],
   templateUrl: './albums.component.html',
   styleUrl: './albums.component.scss'
 })

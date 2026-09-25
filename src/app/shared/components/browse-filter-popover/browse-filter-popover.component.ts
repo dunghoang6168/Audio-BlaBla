@@ -1,4 +1,4 @@
-import { Component, ElementRef, HostListener, ViewChild, input, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, ViewChild, input, signal } from '@angular/core';
 
 let nextPopoverId = 0;
 
@@ -24,13 +24,24 @@ let nextPopoverId = 0;
     .filter-panel { position: fixed; inset: auto; margin: 0; width: min(320px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow-y: auto; padding: 16px; border: 1px solid var(--border-default); border-radius: var(--radius-lg); background: var(--bg-surface); color: var(--text-primary); box-shadow: 0 18px 45px rgba(0, 0, 0, .45); }
   `],
 })
-export class BrowseFilterPopoverComponent {
+export class BrowseFilterPopoverComponent implements AfterViewInit, OnDestroy {
   readonly activeCount = input(0);
   readonly isOpen = signal(false);
   readonly panelId = `browse-filter-${++nextPopoverId}`;
 
   @ViewChild('trigger', { static: true }) private trigger!: ElementRef<HTMLButtonElement>;
   @ViewChild('panel', { static: true }) private panel!: ElementRef<HTMLElement>;
+  private panelObserver: ResizeObserver | null = null;
+
+  ngAfterViewInit(): void {
+    if (typeof ResizeObserver !== 'function') return;
+    this.panelObserver = new ResizeObserver(() => {
+      if (this.panel.nativeElement.matches(':popover-open')) this.positionPanel();
+    });
+    this.panelObserver.observe(this.panel.nativeElement);
+  }
+
+  ngOnDestroy(): void { this.panelObserver?.disconnect(); }
 
   onTriggerClick(): void {
     queueMicrotask(() => {

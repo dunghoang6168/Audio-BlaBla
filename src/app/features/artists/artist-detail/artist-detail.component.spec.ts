@@ -180,11 +180,26 @@ describe('ArtistDetailComponent album quick play', () => {
     expect(metadataGateway.refreshArtist).toHaveBeenCalledOnceWith(artist.id);
   });
 
+  it('explains ambiguous matches and matched profiles without About content', () => {
+    metadataUpdates.next({ artistId: artist.id, metadata: null, status: 'ambiguous' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.section-about')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.metadata-notice').textContent).toContain('Several MusicBrainz profiles');
+
+    metadataUpdates.next({ artistId: artist.id, metadata: null, status: 'matched-empty' });
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.metadata-notice').textContent).toContain('profile was matched');
+    expect(fixture.nativeElement.querySelector('.section-about')).toBeNull();
+    expect([...fixture.nativeElement.querySelectorAll('.hero-actions button')].map((button: HTMLButtonElement) => button.textContent?.trim()))
+      .toEqual(['Play All Songs', 'Edit online info', 'Retry info']);
+  });
+
   it('does not render About for avatar-only metadata, but keeps stale biography visible after a refresh error', () => {
     const metadata = createOnlineMetadata();
     metadataUpdates.next({ artistId: artist.id, metadata: { ...metadata, biography: null, aboutImage: null }, status: 'available' });
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.section-about')).toBeNull();
+    expect(fixture.nativeElement.querySelector('.metadata-notice').textContent).toContain('no biography or About image');
 
     metadataUpdates.next({ artistId: artist.id, metadata, status: 'available' });
     metadataUpdates.next({ artistId: artist.id, metadata, status: 'error', error: 'Offline' });
@@ -249,6 +264,22 @@ describe('ArtistDetailComponent album quick play', () => {
     expect(metadataGateway.setWikipediaOverride).toHaveBeenCalledOnceWith(artist.id, 'https://en.wikipedia.org/wiki/Artist_One');
     expect(component.showMetadataEditor()).toBeFalse();
     expect(component.artist()?.onlineMetadata).toEqual(metadata);
+  });
+
+  it('explains a manually selected MusicBrainz profile without About content', async () => {
+    const candidate = {
+      musicBrainzId: '12345678-1234-4234-9234-123456789abc', name: artist.name,
+      aliases: [], type: 'Person', country: null, disambiguation: null, score: 100,
+    };
+    metadataGateway.searchCandidates.and.resolveTo([candidate]);
+    await component.openMetadataEditor();
+    component.selectedCandidateId.set(candidate.musicBrainzId);
+    await component.saveMetadataMatch();
+    fixture.detectChanges();
+
+    expect(component.showMetadataEditor()).toBeFalse();
+    expect(component.metadataStatus()).toBe('matched-empty');
+    expect(fixture.nativeElement.querySelector('.metadata-notice').textContent).toContain('profile was matched');
   });
 
   it('chooses and removes a custom hero avatar without changing About metadata', async () => {

@@ -2,7 +2,7 @@
     <div class="settings-page">
       <header class="settings-header">
         <h1>Settings</h1>
-        <p class="subtitle">Configure appearance, library folders, playback preferences, and review integration state</p>
+        <p class="subtitle">Configure appearance, library folders, playback preferences, and Songs columns</p>
       </header>
 
       @if (errorMessage()) {
@@ -314,6 +314,8 @@
             </div>
           </div>
         </section>
+
+        <app-song-columns-settings />
 
         <!-- Section 3: About & Architecture -->
         <section class="settings-card card-base">

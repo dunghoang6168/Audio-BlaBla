@@ -116,6 +116,7 @@ class SettingsGatewayStub implements SettingsGateway {
     shuffle: false,
     themePreset: 'midnight',
     accentColor: 'violet',
+    hiddenSongColumns: [],
   };
 
   async getSettings(): Promise<Settings> {

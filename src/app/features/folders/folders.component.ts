@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
@@ -47,10 +47,11 @@ export class FoldersComponent implements OnInit, OnDestroy {
     const curr = this.currentNode();
     return curr?.children?.filter((c) => c.isFolder) || [];
   };
-  filesInCurrentFolder = () => {
+  readonly filesInCurrentFolder = computed(() => {
     const curr = this.currentNode();
-    return curr?.children?.filter((c) => !c.isFolder) || [];
-  };
+    return (curr?.children?.filter((child) => !child.isFolder) ?? [])
+      .sort(compareFolderFiles);
+  });
 
   async ngOnInit(): Promise<void> {
     let wasScanning = false;
@@ -189,4 +190,12 @@ export class FoldersComponent implements OnInit, OnDestroy {
     const t = this.allTracks().find((track) => track.id === trackId);
     return t ? t.duration : 0;
   }
+}
+
+const fileNameCollator = new Intl.Collator('vi', { sensitivity: 'base', numeric: true });
+
+function compareFolderFiles(a: FolderNode, b: FolderNode): number {
+  return fileNameCollator.compare(a.name, b.name)
+    || fileNameCollator.compare(a.path, b.path)
+    || a.id.localeCompare(b.id);
 }

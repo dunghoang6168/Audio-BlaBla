@@ -11,6 +11,7 @@ import { Album } from '../../core/models';
 import { artistAvatarCandidates } from './artist-avatar';
 import { artistInitial, compareNames } from '../library-browse';
 import { BrowseFilterPopoverComponent } from '../../shared/components/browse-filter-popover/browse-filter-popover.component';
+import { orderArtistTracks } from './artist-play-order';
 
 type ArtistSort = 'name' | 'albums' | 'tracks';
 type SortDirection = 'asc' | 'desc';
@@ -117,16 +118,9 @@ export class ArtistsComponent implements OnInit {
 
   onPlayArtist(event: MouseEvent, artist: Artist): void {
     event.stopPropagation();
-    const trackMap = new Map<string, Track>();
-    this.allTracks().forEach((t) => trackMap.set(t.id, t));
-
-    const tracks: Track[] = [];
-    artist.trackIds.forEach((id) => {
-      const t = trackMap.get(id);
-      if (t) tracks.push(t);
-    });
-
+    const tracks = orderArtistTracks(artist, this.allAlbums(), this.allTracks());
     if (tracks.length > 0) {
+      this.player.setShuffle(false);
       this.player.playCollection(tracks, 0);
     }
   }

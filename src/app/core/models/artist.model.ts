@@ -36,6 +36,6 @@ export interface ArtistMetadataUpdate {
   artistId: string;
   metadata: ArtistOnlineMetadata | null;
   customAvatar?: string | null;
-  status: 'available' | 'not-found' | 'ambiguous' | 'error';
+  status: 'available' | 'not-found' | 'ambiguous' | 'matched-empty' | 'error';
   error?: string;
 }

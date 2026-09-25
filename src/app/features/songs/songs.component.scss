@@ -122,7 +122,9 @@
 
     .table-scroll-container {
       flex: 1;
+      min-width: 0;
       overflow-y: auto;
+      overflow-x: hidden;
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius-lg);
       background: var(--bg-surface);
@@ -130,6 +132,7 @@
 
     .songs-table {
       width: 100%;
+      table-layout: fixed;
       border-collapse: collapse;
       text-align: left;
       font-size: var(--font-size-sm);
@@ -199,19 +202,30 @@
       vertical-align: middle;
     }
 
-    .col-index { width: 48px; text-align: center; }
-    .col-title { min-width: 240px; }
-    .col-artist { width: 180px; }
-    .col-album { width: 200px; }
-    .col-duration { width: 80px; font-family: var(--font-family-mono); }
-    .col-codec { width: 100px; }
-    .col-quality { width: 140px; font-family: var(--font-family-mono); }
-    .col-actions { width: 80px; text-align: right; }
+    .col-index { width: 4%; text-align: center; }
+    .col-title { width: 27%; }
+    .col-artist { width: 15%; }
+    .col-album { width: 18%; }
+    .col-duration { width: 7%; font-family: var(--font-family-mono); }
+    .col-codec { width: 8%; }
+    .col-quality { width: 12%; font-family: var(--font-family-mono); }
+    .col-actions { width: 9%; text-align: right; }
+
+    .songs-table .user-hidden { display: none; }
+
+    .songs-table .col-title, .songs-table .col-artist, .songs-table .col-album,
+    .songs-table .col-quality {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     .title-cell {
       display: flex;
       align-items: center;
       gap: var(--space-3);
+      min-width: 0;
+      overflow: hidden;
     }
 
     .thumb-img, .thumb-placeholder {
@@ -236,9 +250,15 @@
       align-items: center;
       gap: var(--space-2);
       min-width: 0;
+      flex: 1;
+      overflow: hidden;
     }
 
     .track-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       font-weight: 500;
       color: var(--text-primary);
     }
@@ -288,7 +308,8 @@
       transition: opacity var(--transition-fast);
     }
 
-    .song-row:hover .row-actions {
+    .song-row:hover .row-actions,
+    .song-row:focus-within .row-actions {
       opacity: 1;
     }
 
@@ -397,14 +418,55 @@
       color: var(--text-primary);
     }
 
-    @media (max-width: 900px) {
-      .col-codec, .col-quality {
-        display: none;
+    @container main-content (max-width: 1200px) {
+      .songs-table th, .songs-table td { padding-inline: var(--space-2); }
+      .row-action-btn { width: 24px; height: 24px; }
+    }
+
+    @container main-content (max-width: 900px) {
+      .songs-container { padding: var(--space-4); }
+    }
+
+    @container main-content (max-width: 780px) {
+      .col-codec, .col-quality { display: none; }
+      .col-index { width: 5%; }
+      .col-title { width: 34%; }
+      .col-artist { width: 20%; }
+      .col-album { width: 22%; }
+      .col-duration { width: 9%; }
+      .col-actions { width: 10%; }
+      .songs-table .col-actions, .songs-table .col-index { padding-inline: 4px; }
+      .row-action-btn { width: 22px; }
+    }
+
+    @container main-content (max-width: 600px) {
+      .col-album { display: none; }
+      .col-index { width: 7%; }
+      .col-title { width: 44%; }
+      .col-artist { width: 26%; }
+      .col-duration { width: 11%; }
+      .col-actions { width: 54px; }
+      .row-action-btn { width: 20px; height: 24px; }
+    }
+
+    @container main-content (max-width: 440px) {
+      .col-artist { display: none; }
+      .col-index { width: 32px; }
+      .col-title { width: auto; }
+      .col-duration { width: 52px; }
+      .col-actions { width: 52px; }
+      .thumb-img, .thumb-placeholder { display: none; }
+      .title-cell { gap: 0; }
+      .title-text-group { gap: 4px; }
+      .badge-unavailable {
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        padding: 0;
+        font-size: 0;
       }
-      .col-album {
-        max-width: 140px;
-      }
-      .songs-container {
-        padding: var(--space-4);
-      }
+      .badge-unavailable::after { content: '!'; font-size: 10px; }
     }

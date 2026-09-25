@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { SettingsGateway } from '../contracts/settings.gateway';
-import { Settings } from '../models';
+import { normalizeHiddenSongColumns, Settings } from '../models';
 import { MOCK_FOLDERS } from './fixtures/mock-data';
 
 @Injectable({ providedIn: 'root' })
@@ -12,6 +12,7 @@ export class MockSettingsGateway implements SettingsGateway {
     shuffle: false,
     themePreset: 'midnight',
     accentColor: 'violet',
+    hiddenSongColumns: [],
   };
 
   async getSettings(): Promise<Settings> {
@@ -24,6 +25,7 @@ export class MockSettingsGateway implements SettingsGateway {
     this.settings = {
       ...this.settings,
       ...settings,
+      hiddenSongColumns: settings.hiddenSongColumns === undefined ? this.settings.hiddenSongColumns : normalizeHiddenSongColumns(settings.hiddenSongColumns),
     };
     return JSON.parse(JSON.stringify(this.settings));
   }
