@@ -11,6 +11,7 @@ export interface DesktopApi {
     getSnapshot(): Promise<LibrarySnapshot>;
     getFolderTree(folderId: string): Promise<FolderNode | null>;
     getTrackDetails(trackId: string): Promise<TrackDetails>;
+    getLyrics(trackId: string): Promise<string | null>;
     selectAndAddFolders(): Promise<MusicFolder[]>;
     removeFolder(folderId: string): Promise<void>;
     startScan(folderIds?: string[]): Promise<void>;

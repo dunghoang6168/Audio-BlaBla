@@ -12,6 +12,7 @@ const api: DesktopApi = {
     getSnapshot: () => ipcRenderer.invoke('library:get-snapshot'),
     getFolderTree: (folderId) => ipcRenderer.invoke('library:get-folder-tree', folderId),
     getTrackDetails: (trackId) => ipcRenderer.invoke('library:get-track-details', trackId),
+    getLyrics: (trackId) => ipcRenderer.invoke('library:get-lyrics', trackId),
     selectAndAddFolders: () => ipcRenderer.invoke('library:select-and-add-folders'),
     removeFolder: (folderId) => ipcRenderer.invoke('library:remove-folder', folderId),
     startScan: (folderIds) => ipcRenderer.invoke('library:start-scan', folderIds),

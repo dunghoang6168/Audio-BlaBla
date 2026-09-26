@@ -6,6 +6,7 @@ import { DatabaseService } from './services/database.service.js';
 import { ScannerService } from './services/scanner.service.js';
 import { TrackDetailsService } from './services/track-details.service.js';
 import { ArtistMetadataService } from './services/artist-metadata.service.js';
+import { LyricsService } from './services/lyrics.service.js';
 import { migrateLegacyProfile } from './services/profile-migration.service.js';
 import { broadcastProgress, registerIpc } from './ipc/register-ipc.js';
 import { installProtocolHandlers, registerPrivilegedSchemes } from './protocols/register-protocols.js';
@@ -93,13 +94,14 @@ app.whenReady().then(async () => {
   const artwork = new ArtworkService(path.join(userData, 'artwork-cache'), database);
   const scanner = new ScannerService(database, artwork, (progress) => broadcastProgress(mainWindow, progress));
   const trackDetails = new TrackDetailsService(database);
+  const lyrics = new LyricsService(database);
   const artistMetadata = new ArtistMetadataService(database, artwork, (update) => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('artist-metadata:updated', update);
   });
   const rendererRoot = path.join(app.getAppPath(), 'dist', 'audio-lutstra', 'browser');
 
   installProtocolHandlers(database, rendererRoot, development);
-  registerIpc(database, scanner, trackDetails, artistMetadata, () => mainWindow, development);
+  registerIpc(database, scanner, trackDetails, artistMetadata, lyrics, () => mainWindow, development);
   session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   session.defaultSession.setPermissionCheckHandler(() => false);
   createWindow();

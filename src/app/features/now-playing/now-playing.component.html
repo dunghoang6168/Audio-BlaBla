@@ -1,8 +1,8 @@
 
     <div class="now-playing-page">
       @if (player.currentTrack(); as track) {
-        <div class="now-playing-content">
-          <!-- Left Column: Big Cover Artwork -->
+        <div class="now-playing-content" [class.has-lyrics]="lyricsStatus() !== 'missing'">
+          <!-- Cover -->
           <div class="artwork-column">
             <div class="large-artwork-card">
               @if (track.artwork) {
@@ -70,7 +70,7 @@
                   (click)="player.toggleShuffle()"
                   title="Toggle Shuffle"
                   aria-label="Toggle Shuffle">
-                  <app-icon name="shuffle" [size]="18" />
+                  <app-icon name="shuffle" [size]="16" />
                 </button>
 
                 <button
@@ -79,7 +79,7 @@
                   (click)="player.previous()"
                   title="Previous Track"
                   aria-label="Previous Track">
-                  <app-icon name="skip-back" [size]="20" />
+                  <app-icon name="skip-back" [size]="18" />
                 </button>
 
                 <button
@@ -89,9 +89,9 @@
                   [title]="player.isPlaybackActive() ? 'Pause' : 'Play'"
                   aria-label="Play or Pause">
                   @if (player.isPlaybackActive()) {
-                    <app-icon name="pause" [size]="24" />
+                    <app-icon name="pause" [size]="20" />
                   } @else {
-                    <app-icon name="play" [size]="24" />
+                    <app-icon name="play" [size]="20" />
                   }
                 </button>
 
@@ -101,7 +101,7 @@
                   (click)="player.next()"
                   title="Next Track"
                   aria-label="Next Track">
-                  <app-icon name="skip-forward" [size]="20" />
+                  <app-icon name="skip-forward" [size]="18" />
                 </button>
 
                 <button
@@ -111,10 +111,11 @@
                   (click)="player.cycleRepeatMode()"
                   [title]="'Repeat Mode: ' + player.repeatMode()"
                   aria-label="Toggle Repeat Mode">
-                  <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="18" />
+                  <app-icon [name]="player.repeatMode() === 'one' ? 'repeat-one' : 'repeat'" [size]="16" />
                 </button>
               </div>
             </div>
+          </div>
 
             <!-- Technical Audio Specification Box (Source Quality) -->
             <button
@@ -171,7 +172,28 @@
                 <span class="path-value truncate" [title]="track.path">{{ track.path }}</span>
               </span>
             </button>
-          </div>
+
+          @if (lyricsStatus() !== 'missing') {
+            <section class="lyrics-card" aria-labelledby="lyrics-heading">
+              <h2 id="lyrics-heading">Lyrics</h2>
+              @if (lyricsStatus() === 'loading') {
+                <p class="lyrics-message">Loading lyrics…</p>
+              } @else if (lyricsStatus() === 'unsupported') {
+                <p class="lyrics-message">This .lrc file has no timed lyric lines.</p>
+              } @else if (lyricsStatus() === 'error') {
+                <p class="lyrics-message">The lyrics file could not be read.</p>
+              } @else {
+                <div class="lyrics-lines" aria-label="Timed lyrics">
+                  @for (line of lyricLines(); track $index) {
+                    <button type="button" class="lyrics-line" [class.active]="activeLineIndex() === $index"
+                      [attr.data-lyric-index]="$index"
+                      [attr.aria-current]="activeLineIndex() === $index ? 'true' : null"
+                      (click)="seekToLyric(line)">{{ line.text }}</button>
+                  }
+                </div>
+              }
+            </section>
+          }
         </div>
 
       } @else {

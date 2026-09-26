@@ -18,8 +18,44 @@ import {
 } from '../ipc/ipc-validation.js';
 import { mapTrackDetails, TrackDetailsService } from '../services/track-details.service.js';
 import { migrateLegacyProfile } from '../services/profile-migration.service.js';
+import { LyricsService } from '../services/lyrics.service.js';
 import type { IAudioMetadata } from 'music-metadata';
 import './artist-metadata.test.js';
+
+test('lyrics service reads only a bounded sidecar inside a registered music folder', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-lyrics-test-'));
+  const musicRoot = path.join(root, 'music');
+  const audioPath = path.join(musicRoot, 'Song.flac');
+  const lyricPath = path.join(musicRoot, 'Song.lrc');
+  const trackId = `track-${'a'.repeat(64)}`;
+  await mkdir(musicRoot);
+  await writeFile(audioPath, 'audio');
+  let resolvedPath = audioPath;
+  const database = {
+    resolveTrack: (id: string) => id === trackId ? { path: resolvedPath, mime: 'audio/flac' } : null,
+    listFolders: () => [{ path: musicRoot }],
+  } as unknown as DatabaseService;
+  const service = new LyricsService(database);
+  try {
+    assert.equal(await service.get(trackId), null);
+    assert.equal(await service.get('track-unknown'), null);
+    await writeFile(lyricPath, '\ufeff[00:01.00]Hello');
+    assert.equal(await service.get(trackId), '[00:01.00]Hello');
+    await writeFile(lyricPath, Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('[00:02.00]World', 'utf16le')]));
+    assert.equal(await service.get(trackId), '[00:02.00]World');
+    const bigEndianText = Buffer.from('[00:03.00]Again', 'utf16le');
+    bigEndianText.swap16();
+    await writeFile(lyricPath, Buffer.concat([Buffer.from([0xfe, 0xff]), bigEndianText]));
+    assert.equal(await service.get(trackId), '[00:03.00]Again');
+    await writeFile(lyricPath, Buffer.alloc(1024 * 1024 + 1));
+    await assert.rejects(service.get(trackId), /too large/);
+    resolvedPath = path.join(root, 'outside.flac');
+    await writeFile(resolvedPath, 'audio');
+    await assert.rejects(service.get(trackId), /outside registered music folders/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test('renamed app migrates the newest legacy library and artwork without changing the source', async () => {
   const appData = await mkdtemp(path.join(os.tmpdir(), 'audio-lutstra-profile-test-'));

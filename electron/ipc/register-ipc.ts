@@ -6,10 +6,11 @@ import { DatabaseService } from '../services/database.service.js';
 import { ScannerService } from '../services/scanner.service.js';
 import { TrackDetailsService } from '../services/track-details.service.js';
 import { ArtistMetadataService } from '../services/artist-metadata.service.js';
+import { LyricsService } from '../services/lyrics.service.js';
 import { validSettings } from './settings-validation.js';
 import { validArtistSourceUrl, validId, validIdArray, validMusicBrainzId, validName, validTitleBarAppearance, validWikipediaOverride } from './ipc-validation.js';
 
-export function registerIpc(database: DatabaseService, scanner: ScannerService, trackDetails: TrackDetailsService, artistMetadata: ArtistMetadataService, getWindow: () => BrowserWindow | null, development: boolean): void {
+export function registerIpc(database: DatabaseService, scanner: ScannerService, trackDetails: TrackDetailsService, artistMetadata: ArtistMetadataService, lyrics: LyricsService, getWindow: () => BrowserWindow | null, development: boolean): void {
   handle('system:ping', () => 'pong', development);
   handle('window:set-title-bar-appearance', (_event, mode) => {
     const appearance = validTitleBarAppearance(mode);
@@ -24,6 +25,7 @@ export function registerIpc(database: DatabaseService, scanner: ScannerService, 
   handle('library:get-snapshot', () => database.getLibrary(), development);
   handle('library:get-folder-tree', (_event, folderId) => database.getFolderTree(validId(folderId)), development);
   handle('library:get-track-details', (_event, trackId) => trackDetails.get(validId(trackId)), development);
+  handle('library:get-lyrics', (_event, trackId) => lyrics.get(validId(trackId)), development);
   handle('library:select-and-add-folders', async () => {
     const window = getWindow();
     const options: Electron.OpenDialogOptions = { properties: ['openDirectory', 'multiSelections'] };
